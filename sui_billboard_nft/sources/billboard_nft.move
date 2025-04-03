@@ -1,16 +1,15 @@
 module sui_billboard_nft::billboard_nft {
-    use sui::object::{Self, UID};
-    use sui::tx_context::{Self, TxContext};
+    use sui::object::UID;
+    use sui::tx_context::TxContext;
     use sui::transfer;
     use sui::event;
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
     use sui::clock::Clock;
     use std::string::String;
-    use std::vector;
     
     use sui_billboard_nft::ad_space::{Self, AdSpace};
-    use sui_billboard_nft::nft::{Self, NFT};
+    use sui_billboard_nft::nft;
     use sui_billboard_nft::factory::{Self, Factory};
 
     // 错误码
@@ -84,6 +83,7 @@ module sui_billboard_nft::billboard_nft {
         mut payment: Coin<SUI>,
         brand_name: String,
         content_url: String,
+        project_url: String,
         lease_days: u64,
         clock: &Clock,
         ctx: &mut TxContext
@@ -129,6 +129,7 @@ module sui_billboard_nft::billboard_nft {
             ad_space,
             brand_name,
             content_url,
+            project_url,
             lease_days,
             clock,
             ctx
@@ -227,7 +228,7 @@ module sui_billboard_nft::billboard_nft {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        nft::update_content(nft, vector::empty(), content_url, clock, ctx)
+        nft::update_content(nft, content_url, clock, ctx)
     }
 
     // 续租广告位

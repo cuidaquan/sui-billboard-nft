@@ -102,15 +102,28 @@ struct AdBoardNFT has key, store {
 }
 ```
 
+#### NFT Display配置
+NFT支持标准化的Display功能，包含以下字段：
+- name: 品牌名称 + Billboard Ad
+- description: 广告位描述
+- image_url: 广告内容URL
+- project_url: 项目URL
+- creator: 创建者地址
+- brand_name: 品牌名称
+- lease_start: 租约开始时间
+- lease_end: 租约结束时间
+- status: NFT状态
+
 ## 主要功能
 
 ### 1. 初始化系统
 ```move
-public fun init(otw: BILLBOARD_NFT, ctx: &mut TxContext)
+fun init(_: BILLBOARD_NFT, ctx: &mut TxContext)
 ```
+- 初始化工厂合约
 - 创建平台管理能力
-- 设置NFT展示配置
-- 初始化系统参数
+- 初始化NFT Display配置
+- 设置系统参数
 
 ### 2. 创建游戏开发者
 ```move
@@ -161,7 +174,6 @@ public entry fun purchase_ad_space(
 ```move
 public entry fun update_ad_content(
     nft: &mut AdBoardNFT,
-    content_hash: vector<u8>,
     content_url: String,
     clock: &Clock,
     ctx: &mut TxContext
@@ -169,22 +181,26 @@ public entry fun update_ad_content(
 ```
 - 验证所有权
 - 检查租约有效性
-- 更新内容
+- 更新内容URL
+- 自动更新Display展示
 
 ### 6. 续租广告位
 ```move
 public entry fun renew_lease(
+    factory: &Factory,
+    ad_space: &mut AdSpace,
     nft: &mut AdBoardNFT,
-    ad_space: &AdSpace,
     payment: Coin<SUI>,
     lease_duration: u64,
     clock: &Clock,
     ctx: &mut TxContext
 )
 ```
-- 验证所有权
+- 验证NFT已过期
 - 计算续租费用
+- 处理平台分成
 - 延长租期
+- 更新Display展示
 
 ## 价格计算
 系统使用智能定价算法，基于以下因素计算广告位价格：
@@ -216,6 +232,10 @@ price = daily_min_price + price_range * (100000 - factor) / 100000;
 - 购买广告位测试
 - 更新广告内容测试
 - 续租测试
+- Display功能测试
+  - 初始化Display
+  - 动态更新Display
+  - Display字段验证
 
 运行测试：
 ```bash

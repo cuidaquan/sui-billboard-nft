@@ -7,9 +7,8 @@ module sui_billboard_nft::ad_space {
     use sui::clock::{Self, Clock};
 
     // 错误码
-    const ENotAuthorized: u64 = 1;
-    const EInvalidAdSize: u64 = 2;
-    const ENotGameDev: u64 = 3;
+    const ENotCreator: u64 = 1;
+    const EInvalidPrice: u64 = 2;
 
     // 广告位结构
     public struct AdSpace has key, store {
@@ -68,7 +67,7 @@ module sui_billboard_nft::ad_space {
             i = i + 1;
         };
         
-        assert!(has_x, EInvalidAdSize);
+        assert!(has_x, EInvalidPrice);
         
         let current_time = clock::timestamp_ms(clock) / 1000;
         
@@ -100,7 +99,7 @@ module sui_billboard_nft::ad_space {
         new_price: u64,
         ctx: &mut TxContext
     ) {
-        assert!(tx_context::sender(ctx) == ad_space.creator, ENotAuthorized);
+        assert!(tx_context::sender(ctx) == ad_space.creator, ENotCreator);
         
         ad_space.fixed_price = new_price;
         
@@ -117,7 +116,7 @@ module sui_billboard_nft::ad_space {
         is_available: bool,
         ctx: &mut TxContext
     ) {
-        assert!(tx_context::sender(ctx) == ad_space.creator, ENotAuthorized);
+        assert!(tx_context::sender(ctx) == ad_space.creator, ENotCreator);
         
         ad_space.is_available = is_available;
         

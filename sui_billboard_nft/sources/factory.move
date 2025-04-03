@@ -1,12 +1,9 @@
 module sui_billboard_nft::factory {
-    use std::string::String;
-    use sui::object::{Self, UID, ID};
-    use sui::tx_context::{Self, TxContext};
+    use sui::object::{UID, ID};
+    use sui::tx_context::TxContext;
     use sui::transfer;
     use sui::table::{Self, Table};
     use sui::event;
-    use sui::coin::{Self, Coin};
-    use sui::sui::SUI;
 
     // 错误码
     const ENotAuthorized: u64 = 1;

@@ -1,18 +1,16 @@
 module sui_billboard_nft::nft {
     use std::string::{String, utf8};
-    use sui::object::{Self, UID, ID};
-    use sui::tx_context::{Self, TxContext};
+    use sui::object::UID;
+    use sui::tx_context::TxContext;
     use sui::transfer;
     use sui::event;
     use sui::clock::{Self, Clock};
     use sui::display;
     use sui::package;
 
-    use sui_billboard_nft::ad_space::{Self, AdSpace};
+    use sui_billboard_nft::ad_space::AdSpace;
 
     public struct WITNESS has drop {}
-
-    public struct NFT has drop {}
 
     // 错误码
     const ENotOwner: u64 = 1;
@@ -31,8 +29,8 @@ module sui_billboard_nft::nft {
         ad_space_id: ID,           // 对应的广告位ID
         owner: address,            // 当前所有者
         brand_name: String,        // 品牌名称
-        content_hash: vector<u8>,  // 内容哈希
         content_url: String,       // 内容URL或指针
+        project_url: String,       // 项目URL
         lease_start: u64,          // 租约开始时间
         lease_end: u64,            // 租约结束时间
         is_active: bool,           // 是否激活
@@ -41,7 +39,6 @@ module sui_billboard_nft::nft {
     // 事件定义
     public struct AdContentUpdated has copy, drop {
         nft_id: ID,
-        content_hash: vector<u8>,
         content_url: String,
         updated_by: address
     }
@@ -64,6 +61,7 @@ module sui_billboard_nft::nft {
         ad_space: &AdSpace,
         brand_name: String,
         content_url: String,
+        project_url: String,
         lease_duration: u64,
         clock: &Clock,
         ctx: &mut TxContext
@@ -75,8 +73,8 @@ module sui_billboard_nft::nft {
             owner: tx_context::sender(ctx),
             ad_space_id: object::id(ad_space),
             brand_name,
-            content_hash: vector::empty(),
             content_url,
+            project_url,
             lease_start: clock::timestamp_ms(clock) / 1000,
             lease_end: (clock::timestamp_ms(clock) / 1000) + (lease_duration * SECONDS_PER_DAY),
             is_active: true
@@ -88,7 +86,6 @@ module sui_billboard_nft::nft {
     // 更新广告内容
     public fun update_content(
         nft: &mut AdBoardNFT,
-        content_hash: vector<u8>,
         content_url: String,
         clock: &Clock,
         ctx: &mut TxContext
@@ -96,12 +93,10 @@ module sui_billboard_nft::nft {
         assert!(tx_context::sender(ctx) == nft.owner, ENotOwner);
         assert!(clock::timestamp_ms(clock) / 1000 <= nft.lease_end, ELeaseExpired);
         
-        nft.content_hash = content_hash;
         nft.content_url = content_url;
         
         event::emit(AdContentUpdated {
             nft_id: object::id(nft),
-            content_hash,
             content_url,
             updated_by: tx_context::sender(ctx)
         });
@@ -184,7 +179,7 @@ module sui_billboard_nft::nft {
             utf8(b"{brand_name} - Billboard Ad"),
             utf8(b"A digital billboard advertisement space in the metaverse"),
             utf8(b"{content_url}"),
-            utf8(b"https://billboard.nft"),
+            utf8(b"{project_url}"),
             utf8(b"{creator}"),
             utf8(b"{brand_name}"),
             utf8(b"{lease_start}"),
