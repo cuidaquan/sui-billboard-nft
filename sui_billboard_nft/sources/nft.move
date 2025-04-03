@@ -1,5 +1,5 @@
 module sui_billboard_nft::nft {
-    use std::string::String;
+    use std::string::{String, utf8};
     use sui::object::{Self, UID, ID};
     use sui::tx_context::{Self, TxContext};
     use sui::transfer;
@@ -9,6 +9,10 @@ module sui_billboard_nft::nft {
     use sui::package;
 
     use sui_billboard_nft::ad_space::{Self, AdSpace};
+
+    public struct WITNESS has drop {}
+
+    public struct NFT has drop {}
 
     // 错误码
     const ENotOwner: u64 = 1;
@@ -160,5 +164,46 @@ module sui_billboard_nft::nft {
     // 转移NFT
     public fun transfer_nft(nft: AdBoardNFT, recipient: address) {
         transfer::transfer(nft, recipient)
+    }
+
+    // 初始化 Display
+    public fun init_display(otw: WITNESS, ctx: &mut TxContext) {
+        let keys = vector[
+            utf8(b"name"),
+            utf8(b"description"),
+            utf8(b"image_url"),
+            utf8(b"project_url"),
+            utf8(b"creator"),
+            utf8(b"brand_name"),
+            utf8(b"lease_start"),
+            utf8(b"lease_end"),
+            utf8(b"status")
+        ];
+
+        let values = vector[
+            utf8(b"{brand_name} - Billboard Ad"),
+            utf8(b"A digital billboard advertisement space in the metaverse"),
+            utf8(b"{content_url}"),
+            utf8(b"https://billboard.nft"),
+            utf8(b"{creator}"),
+            utf8(b"{brand_name}"),
+            utf8(b"{lease_start}"),
+            utf8(b"{lease_end}"),
+            utf8(b"{is_active}")
+        ];
+
+        let publisher = package::claim(otw, ctx);
+        let mut display = display::new_with_fields<AdBoardNFT>(
+            &publisher, keys, values, ctx
+        );
+
+        display::update_version(&mut display);
+        
+        transfer::public_transfer(publisher, tx_context::sender(ctx));
+        transfer::public_transfer(display, tx_context::sender(ctx));
+    }
+
+    public fun get_witness(): WITNESS {
+        WITNESS {}
     }
 } 

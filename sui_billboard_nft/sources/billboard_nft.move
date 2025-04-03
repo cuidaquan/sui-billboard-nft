@@ -10,7 +10,7 @@ module sui_billboard_nft::billboard_nft {
     use std::vector;
     
     use sui_billboard_nft::ad_space::{Self, AdSpace};
-    use sui_billboard_nft::nft;
+    use sui_billboard_nft::nft::{Self, NFT};
     use sui_billboard_nft::factory::{Self, Factory};
 
     // 错误码
@@ -72,6 +72,9 @@ module sui_billboard_nft::billboard_nft {
         event::emit(SystemInitialized {
             admin: tx_context::sender(ctx)
         });
+
+        // 初始化 NFT 模块
+        nft::init_display(nft::get_witness(), ctx);
     }
 
     // 购买广告位并创建NFT
