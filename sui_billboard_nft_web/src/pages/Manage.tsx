@@ -46,7 +46,7 @@ const ManagePage: React.FC = () => {
       setError(null);
       
       const params: CreateAdSpaceParams = {
-        factoryId: values.factoryId,
+        gameDevCapId: values.gameDevCapId,
         gameId: values.gameId,
         location: values.location,
         size: values.size,
@@ -103,11 +103,11 @@ const ManagePage: React.FC = () => {
               className="create-form"
             >
               <Form.Item
-                name="factoryId"
-                label="Factory ID"
-                rules={[{ required: true, message: '请输入Factory ID' }]}
+                name="gameDevCapId"
+                label="游戏开发者凭证ID"
+                rules={[{ required: true, message: '请输入游戏开发者凭证ID' }]}
               >
-                <Input placeholder="请输入Factory ID" />
+                <Input placeholder="请输入游戏开发者凭证ID" />
               </Form.Item>
               
               <Form.Item

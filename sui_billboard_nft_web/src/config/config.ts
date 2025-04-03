@@ -83,6 +83,18 @@ export const CONTRACT_CONFIG = {
    * 可通过环境变量 REACT_APP_FACTORY_OBJECT_ID 修改
    */
   FACTORY_OBJECT_ID: process.env.REACT_APP_FACTORY_OBJECT_ID || '0x123...',
+
+  /**
+   * NFT显示配置对象ID
+   * 可通过环境变量 REACT_APP_NFT_DISPLAY_CONFIG_ID 修改
+   */
+  NFT_DISPLAY_CONFIG_ID: process.env.REACT_APP_NFT_DISPLAY_CONFIG_ID || '0x123...',
+
+  /**
+   * 平台管理员凭证对象ID
+   * 可通过环境变量 REACT_APP_PLATFORM_CAP_ID 修改
+   */
+  PLATFORM_CAP_ID: process.env.REACT_APP_PLATFORM_CAP_ID || '0x123...',
 };
 
 /**

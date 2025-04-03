@@ -28,7 +28,10 @@ export interface NFTBillboard {
 export interface PurchaseAdSpaceParams {
   adSpaceId: string;
   contentUrl: string;
-  duration: number;
+  brandName: string;
+  projectUrl: string;
+  price: string;
+  leaseDays: number;
 }
 
 export interface UpdateNFTContentParams {
@@ -38,7 +41,9 @@ export interface UpdateNFTContentParams {
 
 export interface RenewNFTParams {
   nftId: string;
-  duration: number;
+  adSpaceId: string;
+  leaseDays: number;
+  price: string;
 }
 
 export interface UserProfile {
@@ -78,7 +83,7 @@ export interface User {
 }
 
 export interface CreateAdSpaceParams {
-  factoryId: string;
+  gameDevCapId: string; // 游戏开发者凭证ID
   gameId: string;
   location: string;
   size: string;

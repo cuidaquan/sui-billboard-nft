@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Card, Typography, Alert, Spin, Button, Descriptions, Space, Tag, Modal, Input, Form } from 'antd';
+import { Card, Typography, Alert, Spin, Button, Descriptions, Space, Tag, Modal, Input, Form, Select } from 'antd';
 import { EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import { BillboardNFT } from '../types';
-import { getNFTDetails } from '../utils/contract';
+import { BillboardNFT, RenewNFTParams } from '../types';
+import { getNFTDetails, calculateLeasePrice, formatSuiAmount, createRenewLeaseTx } from '../utils/contract';
 import { formatDate, truncateAddress } from '../utils/format';
 import './NFTDetail.scss';
 
-const { Title, Paragraph } = Typography;
+const { Title, Paragraph, Text } = Typography;
+const { Option } = Select;
 
 const NFTDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,8 @@ const NFTDetailPage: React.FC = () => {
   const [contentUrl, setContentUrl] = useState<string>('');
   const [renewDays, setRenewDays] = useState<number>(30);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [calculatingPrice, setCalculatingPrice] = useState<boolean>(false);
+  const [renewPrice, setRenewPrice] = useState<string>('0');
 
   // 获取NFT详情
   useEffect(() => {
@@ -47,6 +50,27 @@ const NFTDetailPage: React.FC = () => {
     
     fetchNFTDetails();
   }, [id]);
+
+  // 计算续租价格
+  useEffect(() => {
+    if (!nft || !renewLeaseVisible) return;
+    
+    const fetchPrice = async () => {
+      setCalculatingPrice(true);
+      try {
+        const price = await calculateLeasePrice(nft.adSpaceId, renewDays);
+        setRenewPrice(formatSuiAmount(price));
+      } catch (error) {
+        console.error('获取续租价格失败:', error);
+        // 默认价格计算方式 (仅作为备用)
+        setRenewPrice((0.1 * renewDays).toFixed(6));
+      } finally {
+        setCalculatingPrice(false);
+      }
+    };
+    
+    fetchPrice();
+  }, [nft, renewDays, renewLeaseVisible]);
 
   // 更新广告内容
   const handleUpdateContent = async () => {
@@ -78,8 +102,19 @@ const NFTDetailPage: React.FC = () => {
     
     try {
       setSubmitting(true);
+      
+      // 构建续租参数
+      const params: RenewNFTParams = {
+        nftId: nft.id,
+        adSpaceId: nft.adSpaceId,
+        leaseDays: renewDays,
+        price: (Number(renewPrice) * 1000000000).toString()
+      };
+      
       // 这里应该调用合约续租NFT
-      // 模拟成功
+      const txb = createRenewLeaseTx(params);
+      
+      // 模拟成功 (实际项目中应该发送交易)
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 更新本地数据
@@ -92,9 +127,9 @@ const NFTDetailPage: React.FC = () => {
       });
       
       setRenewLeaseVisible(false);
-      setSubmitting(false);
     } catch (err) {
       console.error('续租失败:', err);
+    } finally {
       setSubmitting(false);
     }
   };
@@ -232,7 +267,8 @@ const NFTDetailPage: React.FC = () => {
           <Button 
             key="submit" 
             type="primary" 
-            loading={submitting} 
+            loading={submitting || calculatingPrice}
+            disabled={calculatingPrice}
             onClick={handleRenewLease}
           >
             续租
@@ -243,21 +279,38 @@ const NFTDetailPage: React.FC = () => {
           <Form.Item 
             label="续租天数" 
             required 
-            rules={[{ required: true, message: '请输入续租天数' }]}
           >
-            <Input 
-              type="number" 
-              placeholder="请输入续租天数" 
+            <Select 
               value={renewDays} 
-              onChange={e => setRenewDays(parseInt(e.target.value))}
-              min={1}
-            />
+              onChange={(value) => setRenewDays(Number(value))}
+              style={{ width: '100%' }}
+            >
+              <Option value={7}>7天</Option>
+              <Option value={15}>15天</Option>
+              <Option value={30}>30天</Option>
+              <Option value={60}>60天</Option>
+              <Option value={90}>90天</Option>
+              <Option value={180}>180天</Option>
+              <Option value={365}>365天</Option>
+            </Select>
           </Form.Item>
+          
+          <div className="price-summary" style={{ marginBottom: '20px' }}>
+            {calculatingPrice ? (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Spin size="small" style={{ marginRight: '10px' }} />
+                <Text>计算价格中...</Text>
+              </div>
+            ) : (
+              <div>
+                <Text strong>续租价格: </Text>
+                <Text>{renewPrice} SUI</Text>
+              </div>
+            )}
+          </div>
+          
           <Paragraph type="secondary">
-            当前租期到：{formatDate(new Date(nft.leaseEnd).getTime())}
-          </Paragraph>
-          <Paragraph type="secondary">
-            续租后到期日：{formatDate(new Date(nft.leaseEnd).getTime() + renewDays * 86400000)}
+            续租将延长NFT的租赁期限，价格由智能合约根据续租天数动态计算。
           </Paragraph>
         </Form>
       </Modal>

@@ -219,10 +219,29 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   }
   
   console.log('构建购买广告位交易');
-  // 这里是真实代码，应该构建购买广告位的交易
-  // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
   
-  // TODO: 实现实际的交易构建逻辑
+  // 获取Clock对象
+  const clockObj = txb.moveCall({
+    target: '0x2::clock::Clock',
+  });
+  
+  // 创建SUI支付对象
+  const payment = txb.splitCoins(txb.gas, [txb.pure(params.price)]);
+  
+  // 调用合约的purchase_ad_space函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
+    arguments: [
+      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+      txb.object(params.adSpaceId), // ad_space
+      payment, // payment
+      txb.pure(params.brandName), // brand_name
+      txb.pure(params.contentUrl), // content_url
+      txb.pure(params.projectUrl), // project_url
+      txb.pure(params.leaseDays), // lease_days
+      clockObj, // clock
+    ],
+  });
   
   return txb;
 }
@@ -238,10 +257,21 @@ export function createUpdateAdContentTx(params: UpdateNFTContentParams): Transac
   }
   
   console.log('构建更新广告内容交易');
-  // 这里是真实代码，应该构建更新广告内容的交易
-  // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
   
-  // TODO: 实现实际的交易构建逻辑
+  // 获取Clock对象
+  const clockObj = txb.moveCall({
+    target: '0x2::clock::Clock',
+  });
+  
+  // 调用合约的update_ad_content函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_content`,
+    arguments: [
+      txb.object(params.nftId), // nft
+      txb.pure(params.contentUrl), // content_url
+      clockObj, // clock
+    ],
+  });
   
   return txb;
 }
@@ -257,10 +287,30 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
   }
   
   console.log('构建续租交易');
-  // 这里是真实代码，应该构建续租的交易
-  // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
   
-  // TODO: 实现实际的交易构建逻辑
+  // 获取Clock对象
+  const clockObj = txb.moveCall({
+    target: '0x2::clock::Clock',
+  });
+  
+  // 获取广告位ID
+  const adSpaceId = params.adSpaceId;
+  
+  // 创建SUI支付对象
+  const payment = txb.splitCoins(txb.gas, [txb.pure(params.price)]);
+  
+  // 调用合约的renew_lease函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::renew_lease`,
+    arguments: [
+      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+      txb.object(adSpaceId), // ad_space
+      txb.object(params.nftId), // nft
+      payment, // payment
+      txb.pure(params.leaseDays), // lease_days
+      clockObj, // clock
+    ],
+  });
   
   return txb;
 }
@@ -276,10 +326,78 @@ export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
   }
   
   console.log('构建创建广告位交易');
-  // 这里是真实代码，应该构建创建广告位的交易
-  // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
   
-  // TODO: 实现实际的交易构建逻辑
+  // 获取Clock对象
+  const clockObj = txb.moveCall({
+    target: '0x2::clock::Clock',
+  });
+  
+  // 调用合约的create_ad_space函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_ad_space`,
+    arguments: [
+      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+      txb.object(params.gameDevCapId), // game_dev_cap - 游戏开发者凭证
+      txb.pure(params.gameId), // game_id
+      txb.pure(params.location), // location
+      txb.pure(params.size), // size
+      txb.pure(params.dailyPrice), // daily_price
+      clockObj, // clock
+    ],
+  });
+  
+  return txb;
+}
+
+// 计算广告位租赁价格
+export async function calculateLeasePrice(adSpaceId: string, leaseDays: number): Promise<string> {
+  if (USE_MOCK_DATA) {
+    console.log('使用模拟价格计算');
+    // 模拟价格计算 (仅测试用)
+    const mockPrice = 100000000 * leaseDays; // 0.1 SUI * 天数
+    return mockPrice.toString();
+  }
+  
+  console.log('从链上获取广告位租赁价格');
+  
+  try {
+    const client = createSuiClient();
+    const result = await client.devInspectTransactionBlock({
+      transactionBlock: createCalculateLeasePriceTx(adSpaceId, leaseDays),
+      sender: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    });
+    
+    // 从检查结果中提取返回值
+    if (result.effects.status.status === 'success') {
+      // 解析返回值 (u64 类型的价格)
+      const returnValues = result.results?.[0]?.returnValues;
+      if (returnValues && returnValues.length > 0) {
+        const priceValue = returnValues[0][0];
+        return priceValue.toString(); // 将返回值转换为字符串
+      }
+    }
+    
+    // 如果计算失败，返回一个默认值或抛出错误
+    throw new Error('无法计算租赁价格');
+  } catch (error) {
+    console.error('获取广告位租赁价格失败:', error);
+    // 出错时返回一个默认值
+    return '0';
+  }
+}
+
+// 创建计算租赁价格的只读交易
+function createCalculateLeasePriceTx(adSpaceId: string, leaseDays: number): TransactionBlock {
+  const txb = new TransactionBlock();
+  
+  // 调用合约的计算价格函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::calculate_lease_price`,
+    arguments: [
+      txb.object(adSpaceId), // ad_space
+      txb.pure(leaseDays), // lease_days
+    ],
+  });
   
   return txb;
 }

@@ -230,6 +230,14 @@ module sui_billboard_nft::billboard_nft {
         nft::update_content(nft, content_url, clock, ctx)
     }
 
+    // 暴露广告位价格计算接口
+    public fun calculate_lease_price(
+        ad_space: &AdSpace,
+        lease_days: u64
+    ): u64 {
+        ad_space::calculate_lease_price(ad_space, lease_days)
+    }
+
     // 续租广告位
     public entry fun renew_lease(
         factory: &Factory,
