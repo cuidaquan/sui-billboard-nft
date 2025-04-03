@@ -201,4 +201,10 @@ module sui_billboard_nft::nft {
     public fun get_witness(): WITNESS {
         WITNESS {}
     }
+
+    #[test_only]
+    public fun init_display_for_testing(ctx: &mut TxContext) {
+        // 在测试中跳过publisher和display的创建，因为它们在测试中不是必需的
+        // 这里只是为了让测试能够继续运行
+    }
 } 

@@ -287,4 +287,11 @@ module sui_billboard_nft::billboard_nft {
             lease_days
         });
     }
+
+    #[test_only]
+    public fun create_platform_cap_for_testing(ctx: &mut TxContext): PlatformCap {
+        PlatformCap {
+            id: object::new(ctx)
+        }
+    }
 }
