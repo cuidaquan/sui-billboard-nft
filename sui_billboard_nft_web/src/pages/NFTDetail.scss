@@ -1,0 +1,79 @@
+.nft-detail-page {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  .nft-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    
+    .status-tag {
+      .status {
+        font-size: 14px;
+        padding: 4px 12px;
+        
+        &.active {
+          color: #52c41a;
+          background: rgba(82, 196, 26, 0.1);
+          border-color: #52c41a;
+        }
+        
+        &.expired {
+          color: #f5222d;
+          background: rgba(245, 34, 45, 0.1);
+          border-color: #f5222d;
+        }
+      }
+    }
+  }
+  
+  .nft-content {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 32px;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+    }
+    
+    .nft-image {
+      flex: 0 0 45%;
+      
+      img {
+        width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+    }
+    
+    .nft-details {
+      flex: 1;
+      
+      .ant-card {
+        height: 100%;
+      }
+      
+      .nft-actions {
+        margin-top: 24px;
+        display: flex;
+        justify-content: flex-end;
+      }
+    }
+  }
+  
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    
+    p {
+      margin-top: 16px;
+      color: rgba(0, 0, 0, 0.45);
+    }
+  }
+} 

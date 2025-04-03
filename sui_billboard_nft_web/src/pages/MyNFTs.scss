@@ -1,0 +1,40 @@
+.my-nfts-page {
+  .connect-wallet-prompt {
+    margin: 24px 0;
+  }
+  
+  .loading-container {
+    text-align: center;
+    padding: 48px 0;
+    
+    p {
+      margin-top: 16px;
+      color: rgba(0, 0, 0, 0.45);
+    }
+  }
+  
+  .error-alert {
+    margin-bottom: 24px;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 48px 0;
+    
+    .empty-actions {
+      margin-top: 24px;
+      
+      button {
+        a {
+          text-decoration: none;
+        }
+      }
+    }
+  }
+  
+  .nft-tabs {
+    .ant-tabs-nav {
+      margin-bottom: 24px;
+    }
+  }
+} 

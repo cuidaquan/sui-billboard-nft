@@ -1,0 +1,81 @@
+.ad-space-detail-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  
+  .ad-space-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    
+    .status-tag {
+      margin-left: 16px;
+      
+      .ant-tag {
+        font-size: 14px;
+        padding: 2px 10px;
+      }
+    }
+  }
+  
+  .ad-space-content {
+    display: flex;
+    flex-direction: row;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+    }
+    
+    .ad-space-image {
+      flex: 0 0 55%;
+      margin-right: 24px;
+      
+      @media (max-width: 768px) {
+        flex: 1;
+        margin-right: 0;
+        margin-bottom: 24px;
+      }
+      
+      img {
+        max-width: 100%;
+        border-radius: 8px;
+      }
+    }
+    
+    .ad-space-details {
+      flex: 1;
+      
+      .ant-card {
+        height: 100%;
+        
+        .ant-card-body {
+          height: calc(100% - 57px);
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .ant-divider {
+          margin: 16px 0;
+        }
+        
+        .ant-btn {
+          margin-top: auto;
+        }
+      }
+    }
+  }
+  
+  .loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    
+    p {
+      margin-top: 16px;
+      color: #666;
+    }
+  }
+} 

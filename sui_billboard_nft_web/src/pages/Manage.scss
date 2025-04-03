@@ -1,0 +1,35 @@
+.manage-page {
+  .connect-wallet-prompt {
+    margin: 24px 0;
+  }
+  
+  .error-alert {
+    margin-bottom: 16px;
+  }
+  
+  .manage-tabs {
+    .ant-tabs-nav {
+      margin-bottom: 24px;
+    }
+  }
+  
+  .form-container {
+    max-width: 600px;
+    
+    .create-form {
+      margin-top: 24px;
+      
+      .submit-button {
+        width: 100%;
+      }
+    }
+  }
+  
+  .coming-soon {
+    background-color: #f5f5f5;
+    padding: 24px;
+    border-radius: 8px;
+    text-align: center;
+    margin-top: 24px;
+  }
+} 

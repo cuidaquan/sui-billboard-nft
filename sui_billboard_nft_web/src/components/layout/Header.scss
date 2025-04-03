@@ -1,0 +1,36 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+
+  .logo {
+    margin-right: 24px;
+    
+    h3 {
+      margin: 0;
+      color: white;
+      
+      a {
+        color: white;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        
+        .anticon {
+          margin-right: 8px;
+        }
+      }
+    }
+  }
+  
+  .nav-menu {
+    flex: 1;
+    border-bottom: none;
+    background: transparent;
+  }
+  
+  .connect-wallet {
+    margin-left: 24px;
+  }
+} 
