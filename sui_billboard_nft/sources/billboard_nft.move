@@ -55,7 +55,7 @@ module sui_billboard_nft::billboard_nft {
     }
 
     // 初始化函数
-    fun init(_: BILLBOARD_NFT, ctx: &mut TxContext) {
+    fun init(_witness: BILLBOARD_NFT, ctx: &mut TxContext) {
         // 初始化工厂
         factory::init_factory(ctx);
 
@@ -72,8 +72,7 @@ module sui_billboard_nft::billboard_nft {
             admin: tx_context::sender(ctx)
         });
 
-        // 初始化 NFT 模块
-        nft::init_display(nft::get_witness(), ctx);
+        // NFT模块现在有自己的init函数，不需要在这里初始化
     }
 
     // 购买广告位并创建NFT
