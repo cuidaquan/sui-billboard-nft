@@ -1,12 +1,15 @@
 import React from 'react';
-import { Typography, Card, Button, Row, Col, Space } from 'antd';
+import { Typography, Card, Button, Row, Col, Space, message, Alert } from 'antd';
 import { Link } from 'react-router-dom';
-import { ShoppingOutlined, AppstoreOutlined, UserOutlined } from '@ant-design/icons';
+import { ShoppingOutlined, AppstoreOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import './Home.scss';
 
 const { Title, Paragraph } = Typography;
 
 const HomePage: React.FC = () => {
+  const currentAccount = useCurrentAccount();
+  
   return (
     <div className="home-page">
       <div className="hero-section">
@@ -26,32 +29,35 @@ const HomePage: React.FC = () => {
               我的 NFT
             </Button>
           </Link>
+
         </Space>
       </div>
       
       <div className="features-section">
         <Title level={2} className="section-title">平台特色</Title>
         
-        <Row gutter={[24, 24]}>
-          <Col xs={24} sm={12} lg={8}>
+        <Row gutter={[32, 32]}>
+          <Col xs={24} sm={12} md={8}>
             <Card className="feature-card">
-              <Title level={4}>去中心化广告平台</Title>
+              <Title level={3}>去中心化广告平台</Title>
               <Paragraph>
                 利用区块链技术实现广告位的透明交易和管理，无需中介机构参与
               </Paragraph>
             </Card>
           </Col>
-          <Col xs={24} sm={12} lg={8}>
+          
+          <Col xs={24} sm={12} md={8}>
             <Card className="feature-card">
-              <Title level={4}>NFT 形式广告位</Title>
+              <Title level={3}>NFT 形式广告位</Title>
               <Paragraph>
                 您购买的广告位以 NFT 形式存储在区块链上，可自由交易和管理
               </Paragraph>
             </Card>
           </Col>
-          <Col xs={24} sm={12} lg={8}>
+          
+          <Col xs={24} sm={12} md={8}>
             <Card className="feature-card">
-              <Title level={4}>灵活的租期管理</Title>
+              <Title level={3}>灵活的租期管理</Title>
               <Paragraph>
                 灵活设置广告位租期，随时续租或更新广告内容
               </Paragraph>
@@ -107,4 +113,4 @@ const HomePage: React.FC = () => {
   );
 };
 
-export default HomePage; 
+export default HomePage;

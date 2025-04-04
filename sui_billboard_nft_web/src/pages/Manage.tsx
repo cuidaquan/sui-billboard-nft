@@ -50,7 +50,7 @@ const ManagePage: React.FC = () => {
         gameId: values.gameId,
         location: values.location,
         size: values.size,
-        dailyPrice: values.dailyPrice.toString()
+        yearlyPrice: values.yearlyPrice.toString()
       };
       
       // 创建交易
@@ -140,15 +140,15 @@ const ManagePage: React.FC = () => {
               </Form.Item>
               
               <Form.Item
-                name="dailyPrice"
-                label="每日价格 (SUI)"
+                name="yearlyPrice"
+                label="年租价格 (SUI)"
                 rules={[
-                  { required: true, message: '请输入每日价格' },
+                  { required: true, message: '请输入年租价格' },
                   { type: 'number', min: 0.000001, message: '价格必须大于0' }
                 ]}
               >
                 <InputNumber
-                  placeholder="请输入每日价格"
+                  placeholder="请输入年租价格"
                   step={0.1}
                   precision={6}
                   style={{ width: '100%' }}
@@ -191,4 +191,4 @@ const ManagePage: React.FC = () => {
   );
 };
 
-export default ManagePage; 
+export default ManagePage;

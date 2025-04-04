@@ -341,7 +341,7 @@ export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
       txb.pure(params.gameId), // game_id
       txb.pure(params.location), // location
       txb.pure(params.size), // size
-      txb.pure(params.dailyPrice), // daily_price
+      txb.pure(params.yearlyPrice), // yearly_price (previously daily_price)
       clockObj, // clock
     ],
   });
@@ -405,4 +405,4 @@ function createCalculateLeasePriceTx(adSpaceId: string, leaseDays: number): Tran
 // 格式化 SUI 金额
 export function formatSuiAmount(amount: string): string {
   return (Number(amount) / 1000000000).toString();
-} 
+}

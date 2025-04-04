@@ -87,5 +87,5 @@ export interface CreateAdSpaceParams {
   gameId: string;
   location: string;
   size: string;
-  dailyPrice: string;
-} 
+  yearlyPrice: string;
+}
