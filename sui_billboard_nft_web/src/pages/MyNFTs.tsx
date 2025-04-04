@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Typography, Tabs, Empty, Spin, Alert, Button } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { BillboardNFT } from '../types';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { BillboardNFT, UserRole } from '../types';
 import NFTCard from '../components/nft/NFTCard';
-import { getUserNFTs, createSuiClient } from '../utils/contract';
+import { getUserNFTs } from '../utils/contract';
+import { checkUserRole } from '../utils/auth';
 import './MyNFTs.scss';
 
 const { Title, Paragraph } = Typography;
@@ -19,7 +20,28 @@ const MyNFTsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   const account = useCurrentAccount();
-  const suiClient = createSuiClient();
+  const suiClient = useSuiClient();
+  
+  // 状态变量用于存储用户角色
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  
+  // 检查用户角色
+  useEffect(() => {
+    const checkRole = async () => {
+      if (!account) return;
+      
+      try {
+        const role = await checkUserRole(suiClient, account.address);
+        console.log('当前用户角色:', role);
+        setUserRole(role);
+      } catch (err) {
+        console.error('检查用户角色失败:', err);
+        setUserRole(UserRole.USER); // 出错时设置为普通用户
+      }
+    };
+    
+    checkRole();
+  }, [account, suiClient]);
   
   // 加载用户的NFT
   useEffect(() => {
@@ -135,4 +157,4 @@ const MyNFTsPage: React.FC = () => {
   );
 };
 
-export default MyNFTsPage; 
+export default MyNFTsPage;

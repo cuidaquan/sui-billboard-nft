@@ -14,6 +14,7 @@ module sui_billboard_nft::factory {
         id: UID,
         admin: address,
         ad_spaces: Table<ID, address>,  // 广告位ID到创建者地址的映射
+        game_devs: vector<address>, // 游戏开发者地址列表
         platform_ratio: u8   // 平台分成比例，百分比
     }
 
@@ -42,6 +43,7 @@ module sui_billboard_nft::factory {
             id: object::new(ctx),
             admin: tx_context::sender(ctx),
             ad_spaces: table::new<ID, address>(ctx),
+            game_devs: vector::empty<address>(),
             platform_ratio: DEFAULT_PLATFORM_RATIO
         };
         
@@ -77,6 +79,51 @@ module sui_billboard_nft::factory {
         factory.admin
     }
 
+    // 注册游戏开发者
+    public fun register_game_dev(factory: &mut Factory, game_dev: address, ctx: &mut TxContext) {
+        // 只有管理员可以注册
+        assert!(tx_context::sender(ctx) == factory.admin, ENotAuthorized);
+        
+        // 检查是否已存在
+        let mut i = 0;
+        let len = vector::length(&factory.game_devs);
+        while (i < len) {
+            let dev = *vector::borrow(&factory.game_devs, i);
+            if (dev == game_dev) {
+                return
+            };
+            i = i + 1;
+        };
+        vector::push_back(&mut factory.game_devs, game_dev);
+    }
+
+    // 获取游戏开发者列表
+    public fun get_game_devs(factory: &Factory): vector<address> {
+        let mut devs = vector::empty<address>();
+        let mut i = 0;
+        let len = vector::length(&factory.game_devs);
+        while (i < len) {
+            let dev = *vector::borrow(&factory.game_devs, i);
+            vector::push_back(&mut devs, dev);
+            i = i + 1;
+        };
+        devs
+    }
+
+    // 检查是否是游戏开发者
+    public fun is_game_dev(factory: &Factory, game_dev: address): bool {
+        let mut i = 0;
+        let len = vector::length(&factory.game_devs);
+        while (i < len) {
+            let dev = *vector::borrow(&factory.game_devs, i);
+            if (dev == game_dev) {
+                return true
+            };
+            i = i + 1;
+        };
+        false
+    }
+
     // 更新分成比例
     public fun update_ratios(
         factory: &mut Factory,
@@ -101,4 +148,4 @@ module sui_billboard_nft::factory {
     public fun get_platform_ratio(factory: &Factory): u8 {
         factory.platform_ratio
     }
-} 
+}

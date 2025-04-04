@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Typography, Space, Modal, message } from 'antd';
 import { HomeOutlined, AppstoreOutlined, PictureOutlined, UserOutlined } from '@ant-design/icons';
 import { Link, useLocation } from 'react-router-dom';
-import { useCurrentAccount, useConnectWallet, useCurrentWallet, useDisconnectWallet, useWallets } from '@mysten/dapp-kit';
+import { useCurrentAccount, useConnectWallet, useCurrentWallet, useDisconnectWallet, useWallets, useSuiClient } from '@mysten/dapp-kit';
+import { UserRole } from '../../types';
+import { checkUserRole } from '../../utils/auth';
 import './Header.scss';
 
 const { Header } = Layout;
@@ -15,11 +17,34 @@ const AppHeader: React.FC = () => {
   const { mutate: disconnectWallet } = useDisconnectWallet();
   const currentWallet = useCurrentWallet();
   const wallets = useWallets();
+  const suiClient = useSuiClient();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   
   useEffect(() => {
-    // 监听账户状态变化
-  }, [currentAccount]);
+    // 监听账户状态变化并检查用户角色
+    const checkRole = async () => {
+      if (!currentAccount) {
+        setUserRole(null);
+        return;
+      }
+      
+      try {
+        const role = await checkUserRole(suiClient, currentAccount.address);
+        console.log('当前用户角色:', role);
+        setUserRole(role);
+        
+        // 将用户角色存储在localStorage中，以便其他组件可以访问
+        localStorage.setItem('userRole', role);
+      } catch (err) {
+        console.error('检查用户角色失败:', err);
+        setUserRole(UserRole.USER); // 出错时设置为普通用户
+        localStorage.setItem('userRole', UserRole.USER);
+      }
+    };
+    
+    checkRole();
+  }, [currentAccount, suiClient]);
   
   const showModal = () => {
     setIsModalVisible(true);

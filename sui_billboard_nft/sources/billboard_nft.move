@@ -64,8 +64,16 @@ module sui_billboard_nft::billboard_nft {
             id: object::new(ctx)
         };
 
+        // 创建游戏开发者权限凭证
+        let game_dev_cap = GameDevCap {
+            id: object::new(ctx)
+        };
+
         // 发送平台管理员权限凭证给交易发起者
         transfer::public_transfer(platform_cap, tx_context::sender(ctx));
+        
+        // 同时发送游戏开发者权限凭证给交易发起者
+        transfer::public_transfer(game_dev_cap, tx_context::sender(ctx));
 
         // 发送事件
         event::emit(SystemInitialized {
@@ -150,6 +158,7 @@ module sui_billboard_nft::billboard_nft {
     // 创建游戏开发者权限凭证
     public entry fun create_game_dev_cap(
         _platform_cap: &PlatformCap,
+        factory: &mut Factory,
         recipient: address,
         ctx: &mut TxContext
     ) {
@@ -160,6 +169,9 @@ module sui_billboard_nft::billboard_nft {
 
         // 发送游戏开发者权限凭证给指定接收者
         transfer::public_transfer(game_dev_cap, recipient);
+
+        // 将开发者地址注册到Factory中
+        factory::register_game_dev(factory, recipient, ctx);
 
         // 发送事件
         event::emit(GameDevCapCreated {
@@ -231,11 +243,18 @@ module sui_billboard_nft::billboard_nft {
     }
 
     // 暴露广告位价格计算接口
-    public fun calculate_lease_price(
+    public entry fun calculate_lease_price(
         ad_space: &AdSpace,
         lease_days: u64
     ): u64 {
         ad_space::calculate_lease_price(ad_space, lease_days)
+    }
+
+    // 获取游戏开发者列表
+    public entry fun get_game_devs(
+        factory: &Factory
+    ): vector<address> {
+        factory::get_game_devs(factory)
     }
 
     // 续租广告位

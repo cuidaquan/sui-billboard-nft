@@ -95,6 +95,12 @@ export const CONTRACT_CONFIG = {
    * 可通过环境变量 REACT_APP_PLATFORM_CAP_ID 修改
    */
   PLATFORM_CAP_ID: process.env.REACT_APP_PLATFORM_CAP_ID || '0x123...',
+
+  /**
+   * 游戏开发者凭证对象ID
+   * 可通过环境变量 REACT_APP_GAME_DEV_CAP_ID 修改
+   */
+  GAME_DEV_CAP_ID: process.env.REACT_APP_GAME_DEV_CAP_ID || '0x123...',
 };
 
 /**

@@ -1,35 +1,107 @@
 .manage-page {
-  .connect-wallet-prompt {
-    margin: 24px 0;
-  }
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
   
-  .error-alert {
-    margin-bottom: 16px;
+  .section-title {
+    margin-bottom: 30px;
   }
   
   .manage-tabs {
-    .ant-tabs-nav {
-      margin-bottom: 24px;
-    }
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   
   .form-container {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .create-form {
+    margin-top: 20px;
+  }
+  
+  .register-form {
+    margin-top: 20px;
+  }
+  
+  .register-dev-card {
+    margin-bottom: 30px;
+  }
+  
+  .submit-button {
+    width: 100%;
+  }
+  
+  .error-alert {
+    margin-bottom: 20px;
+  }
+  
+  .connect-wallet-prompt {
     max-width: 600px;
-    
-    .create-form {
-      margin-top: 24px;
-      
-      .submit-button {
-        width: 100%;
-      }
-    }
+    margin: 40px auto;
   }
   
   .coming-soon {
-    background-color: #f5f5f5;
-    padding: 24px;
-    border-radius: 8px;
     text-align: center;
-    margin-top: 24px;
+    padding: 40px 0;
   }
-} 
+  
+  .dev-list-item {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    
+    .dev-address {
+      font-family: monospace;
+      font-weight: 500;
+    }
+    
+    .dev-date {
+      color: #888;
+    }
+  }
+  
+  .registered-devs-section {
+    margin-top: 30px;
+    
+    h4 {
+      margin-bottom: 16px;
+    }
+    
+    .registered-devs-list {
+      background: #fff;
+      border-radius: 4px;
+      
+      .dev-address-item {
+        padding: 12px 16px;
+        
+        .address-content {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          
+          .address-text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            font-size: 14px;
+            margin-right: 16px;
+            word-break: break-all;
+          }
+          
+          .ant-btn-link {
+            padding: 0 8px;
+            height: 24px;
+            line-height: 24px;
+          }
+        }
+      }
+    }
+    
+    .ant-empty {
+      padding: 32px 0;
+    }
+  }
+}

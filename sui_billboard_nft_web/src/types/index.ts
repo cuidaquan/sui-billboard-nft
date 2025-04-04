@@ -83,7 +83,6 @@ export interface User {
 }
 
 export interface CreateAdSpaceParams {
-  gameDevCapId: string; // 游戏开发者凭证ID
   gameId: string;
   location: string;
   size: string;
