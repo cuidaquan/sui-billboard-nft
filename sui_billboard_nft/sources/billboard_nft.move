@@ -159,19 +159,15 @@ module sui_billboard_nft::billboard_nft {
     public entry fun create_game_dev_cap(
         _platform_cap: &PlatformCap,
         factory: &mut Factory,
+        game_dev_cap: GameDevCap,
         recipient: address,
         ctx: &mut TxContext
     ) {
-        // 创建游戏开发者权限凭证
-        let game_dev_cap = GameDevCap {
-            id: object::new(ctx)
-        };
-
-        // 发送游戏开发者权限凭证给指定接收者
-        transfer::public_transfer(game_dev_cap, recipient);
-
         // 将开发者地址注册到Factory中
         factory::register_game_dev(factory, recipient, ctx);
+
+        // 共享GameDevCap给所有开发者
+        transfer::share_object(game_dev_cap);
 
         // 发送事件
         event::emit(GameDevCapCreated {

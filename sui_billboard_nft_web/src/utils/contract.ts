@@ -418,28 +418,27 @@ export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
   return txb;
 }
 
-// 创建游戏开发者凭证交易
-export function createGameDevCapTx(params: {
-  recipient: string;
-}): TransactionBlock {
+// 创建游戏开发者权限交易
+export function createGameDevCapTx(params: { recipient: string, gameDevCapId: string }): TransactionBlock {
   const txb = new TransactionBlock();
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
-    // 不进行实际的交易构建
     return txb;
   }
   
-  console.log('构建创建游戏开发者凭证交易');
+  console.log('构建创建游戏开发者权限交易');
   
   // 调用合约的create_game_dev_cap函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_game_dev_cap`,
     arguments: [
-      txb.object(CONTRACT_CONFIG.PLATFORM_CAP_ID),
-      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID),
-      txb.pure(params.recipient)
+      txb.object(CONTRACT_CONFIG.PLATFORM_CAP_ID), // platform_cap
+      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+      txb.object(params.gameDevCapId), // game_dev_cap
+      txb.pure(params.recipient), // recipient
     ],
+    typeArguments: []
   });
   
   return txb;

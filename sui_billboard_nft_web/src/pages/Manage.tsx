@@ -58,11 +58,14 @@ const ManagePage: React.FC = () => {
       setLoading(true);
       setError(null);
       
+      // 将年度价格转换为整数（以MIST为单位，1 SUI = 10^9 MIST）
+      const yearlyPriceInMist = BigInt(Math.floor(Number(values.yearlyPrice) * 1000000000));
+      
       const params: CreateAdSpaceParams = {
         gameId: values.gameId,
         location: values.location,
         size: values.size,
-        yearlyPrice: values.yearlyPrice.toString()
+        yearlyPrice: yearlyPriceInMist.toString()
       };
       
       // 创建交易
@@ -98,9 +101,15 @@ const ManagePage: React.FC = () => {
       setLoading(true);
       setError(null);
       
+      if (!CONTRACT_CONFIG.GAME_DEV_CAP_ID) {
+        setError('游戏开发者权限ID未配置');
+        return;
+      }
+
       // 创建交易
       const txb = createGameDevCapTx({
-        recipient: values.devAddress
+        recipient: values.devAddress,
+        gameDevCapId: CONTRACT_CONFIG.GAME_DEV_CAP_ID
       });
       
       // 执行交易
