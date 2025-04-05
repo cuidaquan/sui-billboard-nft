@@ -65,76 +65,6 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
   }
 }
 
-// 获取用户拥有的 NFT
-// 获取游戏开发者列表
-export async function getGameDevs(factoryId: string): Promise<string[]> {
-  try {
-    const client = createSuiClient();
-    const txb = new TransactionBlock();
-    
-    txb.moveCall({
-      target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::get_game_devs`,
-      arguments: [
-        txb.object(factoryId)
-      ],
-    });
-    
-    const result = await client.devInspectTransactionBlock({
-      transactionBlock: txb,
-      sender: '0x0000000000000000000000000000000000000000000000000000000000000000'
-    });
-    
-    if (result.effects.status.status === 'failure') {
-      throw new Error(result.effects.status.error || '获取开发者列表失败');
-    }
-    
-    // 从返回值中获取开发者列表
-    if (result.results && result.results[0] && result.results[0].returnValues) {
-      const returnValue = result.results[0].returnValues;
-      
-      // 如果返回值是数组
-      if (Array.isArray(returnValue) && returnValue.length > 0) {
-        // 获取第一个元素（应该是一个包含两项的数组）
-        const firstElement = returnValue[0];
-        if (Array.isArray(firstElement) && firstElement.length === 2) {
-          // 获取地址数组（第一项）
-          const addressArray = firstElement[0];
-          if (Array.isArray(addressArray)) {
-            // 将字节数组分组，每组32个字节代表一个地址
-            const addresses: string[] = [];
-            
-            // 每32个字节为一组处理
-            for (let i = 0; i < addressArray.length; i += 33) {
-              const addressBytes = addressArray.slice(i, i + 33);
-              if (addressBytes.length === 33) {
-                // 将字节数组转换为十六进制字符串，确保每个字节都被正确处理
-                let addressHex = '';
-                // 从索引1开始到31（包括31），总共处理31个字节
-                for (let j = 1; j < addressBytes.length; j++) {
-                  const byte = addressBytes[j];
-                  const byteHex = (typeof byte === 'number' ? byte : parseInt(byte))
-                    .toString(16)
-                    .padStart(2, '0');
-                  addressHex += byteHex;
-                }
-                
-                addresses.push(`0x${addressHex}`);
-              }
-            }
-            
-            return addresses;
-          }
-        }
-      }
-    }
-    
-    return [];
-  } catch (error) {
-    console.error('获取游戏开发者列表失败:', error);
-    return [];
-  }
-}
-
 export async function getUserNFTs(owner: string): Promise<BillboardNFT[]> {
   // 如果使用模拟数据，返回模拟的NFT
   if (USE_MOCK_DATA) {
@@ -520,5 +450,39 @@ export async function updateNFTContent(params: UpdateNFTContentParams): Promise<
   } catch (error) {
     console.error('更新NFT内容失败:', error);
     return false;
+  }
+}
+
+export async function getGameDevsFromFactory(factoryId: string): Promise<string[]> {
+  try {
+    console.log('从链上获取工厂对象数据');
+    const client = createSuiClient();
+    
+    // 获取工厂对象
+    const factoryObject = await client.getObject({
+      id: factoryId,
+      options: {
+        showContent: true,
+        showDisplay: true,
+        showType: true,
+      }
+    });
+    
+    // 从工厂对象中获取游戏开发者列表
+    if (factoryObject.data?.content?.dataType === 'moveObject') {
+      const fields = factoryObject.data.content.fields as any;
+      if (fields && fields.game_devs) {
+        // 游戏开发者列表是向量类型
+        const gameDevs = fields.game_devs as string[];
+        console.log('获取到的游戏开发者列表:', gameDevs);
+        return gameDevs;
+      }
+    }
+    
+    console.warn('未能找到游戏开发者列表，工厂对象结构:', factoryObject);
+    return [];
+  } catch (error) {
+    console.error('获取游戏开发者列表失败:', error);
+    return [];
   }
 }

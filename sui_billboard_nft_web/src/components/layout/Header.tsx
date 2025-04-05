@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Typography, Space, Modal, message } from 'antd';
-import { HomeOutlined, AppstoreOutlined, PictureOutlined, UserOutlined } from '@ant-design/icons';
+import { Layout, Menu, Button, Typography, Space, Modal, message, Dropdown, Avatar, notification } from 'antd';
+import { HomeOutlined, AppstoreOutlined, PictureOutlined, UserOutlined, WalletOutlined, LogoutOutlined, CopyOutlined } from '@ant-design/icons';
 import { Link, useLocation } from 'react-router-dom';
 import { useCurrentAccount, useConnectWallet, useDisconnectWallet, useWallets, useSuiClient } from '@mysten/dapp-kit';
 import { UserRole } from '../../types';
@@ -18,12 +18,15 @@ const AppHeader: React.FC = () => {
   const wallets = useWallets();
   const suiClient = useSuiClient();
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
   
+  // 获取并存储用户角色
   useEffect(() => {
     // 监听账户状态变化并检查用户角色
     const checkRole = async () => {
       if (!currentAccount) {
         localStorage.removeItem('userRole');
+        setUserRole(UserRole.USER);
         return;
       }
       
@@ -33,23 +36,28 @@ const AppHeader: React.FC = () => {
         
         // 将用户角色存储在localStorage中，以便其他组件可以访问
         localStorage.setItem('userRole', role);
+        setUserRole(role);
       } catch (err) {
         console.error('检查用户角色失败:', err);
         localStorage.setItem('userRole', UserRole.USER);
+        setUserRole(UserRole.USER);
       }
     };
     
     checkRole();
   }, [currentAccount, suiClient]);
   
+  // 显示钱包选择模态框
   const showModal = () => {
     setIsModalVisible(true);
   };
 
+  // 关闭钱包选择模态框
   const handleCancel = () => {
     setIsModalVisible(false);
   };
   
+  // 连接钱包
   const handleConnectWallet = async (walletName?: string) => {
     try {
       // 获取可用的钱包列表
@@ -59,7 +67,10 @@ const AppHeader: React.FC = () => {
           const wallet = wallets.find(w => w.name === walletName);
           if (wallet) {
             connectWallet({ wallet });
-            message.success('正在连接钱包...');
+            message.loading({
+              content: '正在连接钱包...',
+              key: 'walletConnect'
+            });
             setIsModalVisible(false);
           } else {
             message.error('未找到指定的钱包');
@@ -68,7 +79,10 @@ const AppHeader: React.FC = () => {
         // 如果只有一个钱包且未指定钱包名称，直接选择它
         else if (wallets.length === 1) {
           connectWallet({ wallet: wallets[0] });
-          message.success('正在连接钱包...');
+          message.loading({
+            content: '正在连接钱包...',
+            key: 'walletConnect'
+          });
           setIsModalVisible(false);
         } else {
           // 如果有多个钱包且未指定钱包名称，显示钱包列表供用户选择
@@ -76,21 +90,73 @@ const AppHeader: React.FC = () => {
           // 这里保持模态框打开，让用户可以看到钱包列表
         }
       } else {
-        message.error('未检测到钱包扩展，请确保已安装Sui钱包');
+        notification.warning({
+          message: '未检测到钱包扩展',
+          description: '请安装支持 Sui 的钱包扩展，如 Sui Wallet 或 Ethos Wallet。',
+          duration: 10,
+          placement: 'topRight'
+        });
       }
     } catch (error) {
       message.error('连接钱包失败');
+      console.error('连接钱包错误:', error);
     }
   };
   
+  // 断开钱包连接
   const handleDisconnect = async () => {
-    try {
-      disconnectWallet();
-      message.success('钱包已断开连接');
-    } catch (error) {
-      message.error('断开钱包连接失败');
+    Modal.confirm({
+      title: '断开钱包连接',
+      content: '确定要断开钱包连接吗？',
+      onOk: () => {
+        try {
+          disconnectWallet();
+          message.success('钱包已断开连接');
+        } catch (error) {
+          message.error('断开钱包连接失败');
+          console.error('断开钱包连接错误:', error);
+        }
+      }
+    });
+  };
+  
+  // 复制钱包地址
+  const copyAddress = () => {
+    if (currentAccount) {
+      navigator.clipboard.writeText(currentAccount.address)
+        .then(() => {
+          message.success('地址已复制到剪贴板');
+        })
+        .catch(err => {
+          console.error('复制地址失败:', err);
+          message.error('复制地址失败');
+        });
     }
   };
+  
+  // 获取钱包地址的缩略显示
+  const getShortAddress = (address: string) => {
+    return address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : '';
+  };
+  
+  // 用户钱包菜单项
+  const walletMenuItems = [
+    {
+      key: 'address',
+      icon: <CopyOutlined />,
+      label: (
+        <div onClick={copyAddress}>
+          {currentAccount ? getShortAddress(currentAccount.address) : ''}
+        </div>
+      ),
+    },
+    {
+      key: 'disconnect',
+      icon: <LogoutOutlined />,
+      label: '断开连接',
+      onClick: handleDisconnect,
+    },
+  ];
   
   return (
     <Header className="app-header">
@@ -123,31 +189,39 @@ const AppHeader: React.FC = () => {
             icon: <PictureOutlined />,
             label: <Link to="/my-nfts">我的NFT</Link>,
           },
-          {
-            key: '/manage',
-            icon: <UserOutlined />,
-            label: <Link to="/manage">管理中心</Link>,
-          },
+          // 只有管理员和游戏开发者才显示管理中心
+          ...(userRole === UserRole.ADMIN || userRole === UserRole.GAME_DEV ? [
+            {
+              key: '/manage',
+              icon: <UserOutlined />,
+              label: <Link to="/manage">管理中心</Link>,
+            }
+          ] : []),
         ]}
       />
       
       <Space className="connect-wallet">
         {currentAccount ? (
-          <Button 
-            type="primary"
-            onClick={handleDisconnect}
-            style={{
-              backgroundColor: '#1677ff',
-              color: 'white',
-              borderRadius: '4px',
-              padding: '0 16px',
-              height: '32px',
-              fontWeight: 'bold',
-              border: 'none'
-            }}
-          >
-            已连接
-          </Button>
+          <Dropdown menu={{ items: walletMenuItems }} placement="bottomRight">
+            <Button 
+              type="primary"
+              style={{
+                backgroundColor: '#1677ff',
+                color: 'white',
+                borderRadius: '4px',
+                padding: '0 16px',
+                height: '32px',
+                fontWeight: 'bold',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <Avatar size="small" icon={<WalletOutlined />} style={{ backgroundColor: '#096dd9' }} />
+              {getShortAddress(currentAccount.address)}
+            </Button>
+          </Dropdown>
         ) : (
           <Button 
             type="primary"
@@ -162,6 +236,7 @@ const AppHeader: React.FC = () => {
               fontWeight: 'bold',
               border: 'none'
             }}
+            icon={<WalletOutlined />}
           >
             连接钱包
           </Button>
@@ -174,7 +249,7 @@ const AppHeader: React.FC = () => {
           footer={null}
           centered
         >
-          <p>请安装并连接 Sui 钱包以继续：</p>
+          <p>请选择您想要连接的钱包：</p>
           <div style={{ textAlign: 'center', margin: '20px 0' }}>
             {wallets.length > 0 ? (
               <div>
@@ -193,6 +268,10 @@ const AppHeader: React.FC = () => {
                       fontSize: '16px',
                       width: '200px',
                       margin: '5px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
                     }}
                   >
                     {wallet.name}
@@ -200,31 +279,30 @@ const AppHeader: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <Button 
-                type="primary"
-                onClick={() => handleConnectWallet()}
-                loading={isConnecting}
-                style={{
-                  backgroundColor: '#1677ff',
-                  color: 'white',
-                  borderRadius: '4px',
-                  padding: '0 16px',
-                  height: '40px',
-                  fontWeight: 'bold',
-                  fontSize: '16px',
-                  width: '200px',
-                }}
-              >
-                连接钱包
-              </Button>
+              <div>
+                <p>未检测到可用的钱包扩展。</p>
+                <p>请安装以下钱包之一：</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+                  <Button 
+                    href="https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil" 
+                    target="_blank"
+                    style={{ width: '200px', margin: '0 auto' }}
+                  >
+                    安装 Sui Wallet
+                  </Button>
+                  <Button 
+                    href="https://chrome.google.com/webstore/detail/ethos-sui-wallet/mcbigmjiafegjnnogedioegffbooigli" 
+                    target="_blank"
+                    style={{ width: '200px', margin: '0 auto' }}
+                  >
+                    安装 Ethos Wallet
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
-          <p>
-            如果您还没有安装 Sui 钱包，可以从 
-            <a href="https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil" target="_blank" rel="noopener noreferrer">
-              Chrome 应用商店
-            </a> 
-            下载安装。
+          <p style={{ marginTop: '20px', fontSize: '13px', color: '#888' }}>
+            连接钱包后，您可以浏览和购买NFT、管理您的资产，并参与平台生态系统。
           </p>
         </Modal>
       </Space>

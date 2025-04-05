@@ -38,8 +38,8 @@ const ManagePage: React.FC = () => {
         
         // 如果是管理员，获取已注册的开发者列表
         if (role === UserRole.ADMIN) {
-          const { getGameDevs } = await import('../utils/contract');
-          const devs = await getGameDevs(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+          const { getGameDevsFromFactory } = await import('../utils/contract');
+          const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
           setRegisteredDevs(devs);
         }
       } catch (err) {

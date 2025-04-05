@@ -225,13 +225,6 @@ module sui_billboard_nft::billboard_nft {
         ad_space::calculate_lease_price(ad_space, lease_days)
     }
 
-    // 获取游戏开发者列表
-    public entry fun get_game_devs(
-        factory: &Factory
-    ): vector<address> {
-        factory::get_game_devs(factory)
-    }
-
     // 续租广告位
     public entry fun renew_lease(
         factory: &Factory,
@@ -287,22 +280,6 @@ module sui_billboard_nft::billboard_nft {
             nft_id: object::id_address(nft),
             lease_days
         });
-    }
-
-    // 检查当前用户是否是管理员
-    public entry fun is_admin(
-        factory: &Factory,
-        ctx: &mut TxContext
-    ): bool {
-        factory::get_admin(factory) == tx_context::sender(ctx)
-    }
-
-    // 检查当前用户是否是游戏开发者
-    public entry fun is_game_dev(
-        factory: &Factory,
-        ctx: &mut TxContext
-    ): bool {
-        factory::is_game_dev(factory, tx_context::sender(ctx))
     }
 
     #[test_only]
