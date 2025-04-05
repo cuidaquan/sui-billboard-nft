@@ -473,4 +473,58 @@ module sui_billboard_nft::billboard_nft_tests {
         clock::destroy_for_testing(clock);
         ts::end(scenario);
     }
+
+    #[test]
+    fun test_is_admin() {
+        let mut scenario = init_test();
+        
+        // 验证管理员身份
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let factory = ts::take_shared<Factory>(&scenario);
+            assert!(billboard_nft::is_admin(&factory, ts::ctx(&mut scenario)), 0);
+            ts::return_shared(factory);
+        };
+        
+        // 验证非管理员身份
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let factory = ts::take_shared<Factory>(&scenario);
+            assert!(!billboard_nft::is_admin(&factory, ts::ctx(&mut scenario)), 0);
+            ts::return_shared(factory);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    fun test_is_game_dev() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 验证已注册的游戏开发者身份
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let factory = ts::take_shared<Factory>(&scenario);
+            assert!(billboard_nft::is_game_dev(&factory, ts::ctx(&mut scenario)), 0);
+            ts::return_shared(factory);
+        };
+        
+        // 验证非游戏开发者身份
+        ts::next_tx(&mut scenario, BUYER);
+        {
+            let factory = ts::take_shared<Factory>(&scenario);
+            assert!(!billboard_nft::is_game_dev(&factory, ts::ctx(&mut scenario)), 0);
+            ts::return_shared(factory);
+        };
+        
+        ts::end(scenario);
+    }
 } 

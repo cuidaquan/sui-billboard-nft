@@ -1,6 +1,6 @@
 module sui_billboard_nft::billboard_nft {
     use sui::object::UID;
-    use sui::tx_context::TxContext;
+    use sui::tx_context::{Self, TxContext};
     use sui::transfer;
     use sui::event;
     use sui::coin::{Self, Coin};
@@ -287,6 +287,22 @@ module sui_billboard_nft::billboard_nft {
             nft_id: object::id_address(nft),
             lease_days
         });
+    }
+
+    // 检查当前用户是否是管理员
+    public entry fun is_admin(
+        factory: &Factory,
+        ctx: &mut TxContext
+    ): bool {
+        factory::get_admin(factory) == tx_context::sender(ctx)
+    }
+
+    // 检查当前用户是否是游戏开发者
+    public entry fun is_game_dev(
+        factory: &Factory,
+        ctx: &mut TxContext
+    ): bool {
+        factory::is_game_dev(factory, tx_context::sender(ctx))
     }
 
     #[test_only]
