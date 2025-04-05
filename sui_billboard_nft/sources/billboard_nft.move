@@ -32,6 +32,10 @@ module sui_billboard_nft::billboard_nft {
         game_dev: address
     }
 
+    public struct GameDevRemoved has copy, drop {
+        game_dev: address
+    }
+
     public struct AdSpacePurchased has copy, drop {
         ad_space_id: address,
         buyer: address,
@@ -72,6 +76,24 @@ module sui_billboard_nft::billboard_nft {
 
         // 发送事件
         event::emit(GameDevRegistered {
+            game_dev
+        });
+    }
+
+    // 移除游戏开发者
+    public entry fun remove_game_dev(
+        factory: &mut Factory,
+        game_dev: address,
+        ctx: &mut TxContext
+    ) {
+        // 验证调用者是否为管理员
+        assert!(factory::get_admin(factory) == tx_context::sender(ctx), ENotAdmin);
+
+        // 从Factory中移除开发者地址
+        factory::remove_game_dev(factory, game_dev, ctx);
+
+        // 发送事件
+        event::emit(GameDevRemoved {
             game_dev
         });
     }

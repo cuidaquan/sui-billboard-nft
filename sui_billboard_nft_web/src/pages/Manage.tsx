@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty } from 'antd';
+import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm } from 'antd';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { CreateAdSpaceParams, UserRole, RegisterGameDevParams } from '../types';
-import { createAdSpaceTx, registerGameDevTx } from '../utils/contract';
+import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams } from '../types';
+import { createAdSpaceTx, registerGameDevTx, removeGameDevTx } from '../utils/contract';
 import { CONTRACT_CONFIG } from '../config/config';
 import './Manage.scss';
 
@@ -124,44 +124,269 @@ const ManagePage: React.FC = () => {
       }
 
       // 创建交易
-      const params = {
+      const params: RegisterGameDevParams = {
         factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
         developer: normalizedAddress
       };
 
       const txb = registerGameDevTx(params);
       
-      // 执行交易
+      // 显示交易执行中状态
+      message.loading({
+        content: '正在执行交易...',
+        key: 'registerDev',
+        duration: 0 // 不自动关闭
+      });
+      
       try {
+        // 执行交易并等待结果
         const result = await signAndExecute({
           transaction: txb.serialize()
         });
         
         console.log('交易执行成功:', result);
         
-        // 交易成功后才执行后续操作
-        message.success('游戏开发者注册成功！');
+        // 重置表单
         devRegisterForm.resetFields();
         
-        // 重新从合约获取最新的开发者列表
+        // 显示成功消息
+        message.success({
+          content: '游戏开发者注册成功！',
+          key: 'registerDev',
+          duration: 2
+        });
+        
+        // 显示刷新状态
+        message.loading({
+          content: '正在刷新开发者列表...',
+          key: 'refreshDevs',
+          duration: 0 // 不自动关闭
+        });
+        
+        // 等待交易确认并更新开发者列表
         try {
+          // 获取最新的开发者列表
           const { getGameDevsFromFactory } = await import('../utils/contract');
-          const updatedDevs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
-          setRegisteredDevs(updatedDevs);
+          
+          // 尝试最多3次获取最新列表，每次间隔增加
+          let updatedDevs: string[] = [];
+          let attempts = 0;
+          const maxAttempts = 3;
+          let success = false;
+          
+          while (attempts < maxAttempts && !success) {
+            attempts++;
+            // 等待时间随尝试次数增加
+            const delay = 2000 * attempts;
+            
+            // 等待一段时间再获取数据，确保链上数据已更新
+            await new Promise(resolve => setTimeout(resolve, delay));
+            
+            try {
+              updatedDevs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+              
+              // 检查新地址是否在列表中
+              if (updatedDevs.some(dev => dev.toLowerCase() === normalizedAddress)) {
+                success = true;
+                console.log(`成功获取更新的开发者列表，尝试次数: ${attempts}`);
+              } else {
+                console.log(`开发者地址未出现在列表中，等待更长时间，尝试次数: ${attempts}`);
+              }
+            } catch (error) {
+              console.error(`尝试第 ${attempts} 次获取开发者列表失败:`, error);
+            }
+          }
+          
+          if (success) {
+            // 成功获取到包含新开发者的列表
+            setRegisteredDevs(updatedDevs);
+            message.success({
+              content: '开发者列表已更新',
+              key: 'refreshDevs',
+              duration: 2
+            });
+          } else {
+            // 多次尝试后仍未获取到最新列表，手动更新UI
+            console.warn('无法从区块链获取最新数据，手动更新UI');
+            setRegisteredDevs(prevDevs => {
+              // 检查是否已存在，避免重复添加
+              if (!prevDevs.some(dev => dev.toLowerCase() === normalizedAddress)) {
+                return [...prevDevs, normalizedAddress];
+              }
+              return prevDevs;
+            });
+            message.info({
+              content: '已手动添加开发者到列表',
+              key: 'refreshDevs',
+              duration: 2
+            });
+          }
         } catch (fetchError) {
           console.error('更新开发者列表失败:', fetchError);
-          // 如果获取失败，至少将新注册的开发者添加到列表中
-          setRegisteredDevs(prev => [...prev, normalizedAddress]);
+          // 交易已成功但获取列表失败，手动更新UI
+          setRegisteredDevs(prevDevs => {
+            if (!prevDevs.some(dev => dev.toLowerCase() === normalizedAddress)) {
+              return [...prevDevs, normalizedAddress];
+            }
+            return prevDevs;
+          });
+          message.warning({
+            content: '无法从合约获取最新列表，已手动更新',
+            key: 'refreshDevs',
+            duration: 2
+          });
         }
       } catch (txError) {
         console.error('交易执行失败:', txError);
         const errorMsg = txError instanceof Error ? txError.message : String(txError);
         setError(`交易执行失败: ${errorMsg}`);
+        message.error({
+          content: '游戏开发者注册失败',
+          key: 'registerDev',
+          duration: 2
+        });
       }
     } catch (err) {
       console.error('注册游戏开发者失败:', err);
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(`注册游戏开发者失败: ${errorMsg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 移除游戏开发者
+  const handleRemoveGameDev = async (developerAddress: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 规范化地址格式
+      const normalizedAddress = developerAddress.toLowerCase();
+      
+      // 确认开发者存在于列表中
+      if (!registeredDevs.some(dev => dev.toLowerCase() === normalizedAddress)) {
+        setError('要移除的开发者不在列表中');
+        setLoading(false);
+        return;
+      }
+      
+      // 创建交易参数
+      const params: RemoveGameDevParams = {
+        factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+        developer: normalizedAddress
+      };
+      
+      // 显示交易执行中状态
+      message.loading({
+        content: '正在执行移除操作...',
+        key: 'removeDev',
+        duration: 0 // 不自动关闭
+      });
+      
+      try {
+        // 执行交易并等待结果
+        const txb = removeGameDevTx(params);
+        const result = await signAndExecute({
+          transaction: txb.serialize()
+        });
+        
+        console.log('移除开发者交易执行成功:', result);
+        
+        // 显示成功消息
+        message.success({
+          content: '游戏开发者移除成功！',
+          key: 'removeDev',
+          duration: 2
+        });
+        
+        // 显示刷新状态
+        message.loading({
+          content: '正在刷新开发者列表...',
+          key: 'refreshDevs',
+          duration: 0 // 不自动关闭
+        });
+        
+        // 等待交易确认并更新开发者列表
+        try {
+          // 获取最新的开发者列表
+          const { getGameDevsFromFactory } = await import('../utils/contract');
+          
+          // 尝试最多3次获取最新列表，每次间隔增加
+          let updatedDevs: string[] = [];
+          let attempts = 0;
+          const maxAttempts = 3;
+          let success = false;
+          
+          while (attempts < maxAttempts && !success) {
+            attempts++;
+            // 等待时间随尝试次数增加
+            const delay = 2000 * attempts;
+            
+            // 等待一段时间再获取数据，确保链上数据已更新
+            await new Promise(resolve => setTimeout(resolve, delay));
+            
+            try {
+              updatedDevs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+              
+              // 检查开发者地址是否已从列表中移除
+              if (!updatedDevs.some(dev => dev.toLowerCase() === normalizedAddress)) {
+                success = true;
+                console.log(`成功获取更新的开发者列表，已确认开发者被移除，尝试次数: ${attempts}`);
+              } else {
+                console.log(`开发者地址仍在列表中，等待更长时间，尝试次数: ${attempts}`);
+              }
+            } catch (error) {
+              console.error(`尝试第 ${attempts} 次获取开发者列表失败:`, error);
+            }
+          }
+          
+          if (success) {
+            // 成功获取到已移除开发者的列表
+            setRegisteredDevs(updatedDevs);
+            message.success({
+              content: '开发者列表已更新',
+              key: 'refreshDevs',
+              duration: 2
+            });
+          } else {
+            // 多次尝试后仍未获取到最新列表，手动更新UI
+            console.warn('无法从区块链获取最新数据，手动更新UI');
+            setRegisteredDevs(prevDevs => 
+              prevDevs.filter(dev => dev.toLowerCase() !== normalizedAddress)
+            );
+            message.info({
+              content: '已手动从列表中移除开发者',
+              key: 'refreshDevs',
+              duration: 2
+            });
+          }
+        } catch (fetchError) {
+          console.error('更新开发者列表失败:', fetchError);
+          // 交易已成功但获取列表失败，手动更新UI
+          setRegisteredDevs(prevDevs => 
+            prevDevs.filter(dev => dev.toLowerCase() !== normalizedAddress)
+          );
+          message.warning({
+            content: '无法从合约获取最新列表，已手动更新',
+            key: 'refreshDevs',
+            duration: 2
+          });
+        }
+      } catch (txError) {
+        console.error('移除开发者交易执行失败:', txError);
+        const errorMsg = txError instanceof Error ? txError.message : String(txError);
+        setError(`移除开发者失败: ${errorMsg}`);
+        message.error({
+          content: '游戏开发者移除失败',
+          key: 'removeDev',
+          duration: 2
+        });
+      }
+    } catch (err) {
+      console.error('移除游戏开发者失败:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`移除游戏开发者失败: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -253,16 +478,35 @@ const ManagePage: React.FC = () => {
                       <List.Item className="dev-address-item">
                         <div className="address-content">
                           <Text className="address-text">{dev}</Text>
-                          <Button
-                            type="link"
-                            size="small"
-                            onClick={() => {
-                              navigator.clipboard.writeText(dev);
-                              message.success('地址已复制');
-                            }}
-                          >
-                            复制
-                          </Button>
+                          <div className="button-group">
+                            <Button
+                              type="link"
+                              size="small"
+                              onClick={() => {
+                                navigator.clipboard.writeText(dev);
+                                message.success('地址已复制');
+                              }}
+                            >
+                              复制
+                            </Button>
+                            <Popconfirm
+                              title="移除开发者"
+                              description="确定要移除此开发者吗？此操作不可撤销。"
+                              onConfirm={() => handleRemoveGameDev(dev)}
+                              okText="确认"
+                              cancelText="取消"
+                              okButtonProps={{ danger: true }}
+                            >
+                              <Button
+                                type="link"
+                                size="small"
+                                danger
+                                loading={loading}
+                              >
+                                移除
+                              </Button>
+                            </Popconfirm>
+                          </div>
                         </div>
                       </List.Item>
                     )}
@@ -362,15 +606,6 @@ const ManagePage: React.FC = () => {
         </TabPane>
         
         <TabPane tab="我的广告位" key="myAdSpaces">
-          <div className="coming-soon">
-            <Title level={4}>即将推出</Title>
-            <Paragraph>
-              该功能正在开发中，敬请期待。
-            </Paragraph>
-          </div>
-        </TabPane>
-        
-        <TabPane tab="收益统计" key="statistics">
           <div className="coming-soon">
             <Title level={4}>即将推出</Title>
             <Paragraph>

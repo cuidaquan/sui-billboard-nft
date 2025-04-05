@@ -74,27 +74,26 @@
     .registered-devs-list {
       background: #fff;
       border-radius: 4px;
+      margin-top: 15px;
       
       .dev-address-item {
-        padding: 12px 16px;
+        padding: 10px 16px;
         
         .address-content {
           display: flex;
-          align-items: center;
           justify-content: space-between;
+          align-items: center;
           width: 100%;
           
           .address-text {
-            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
-            font-size: 14px;
-            margin-right: 16px;
+            flex: 1;
+            font-family: monospace;
             word-break: break-all;
           }
           
-          .ant-btn-link {
-            padding: 0 8px;
-            height: 24px;
-            line-height: 24px;
+          .button-group {
+            display: flex;
+            gap: 8px;
           }
         }
       }

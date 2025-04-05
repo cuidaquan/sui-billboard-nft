@@ -8,6 +8,7 @@ module sui_billboard_nft::factory {
     // 错误码
     const ENotAuthorized: u64 = 1;
     const EInvalidPlatformRatio: u64 = 2;
+    const EGameDevNotFound: u64 = 3;
 
     // 工厂结构，用于管理广告位和分成比例
     public struct Factory has key {
@@ -32,6 +33,11 @@ module sui_billboard_nft::factory {
     public struct RatioUpdated has copy, drop {
         factory_id: ID,
         platform_ratio: u8
+    }
+    
+    // 游戏开发者移除事件
+    public struct GameDevRemoved has copy, drop {
+        game_dev: address
     }
 
     // 默认分成比例
@@ -95,6 +101,39 @@ module sui_billboard_nft::factory {
             i = i + 1;
         };
         vector::push_back(&mut factory.game_devs, game_dev);
+    }
+    
+    // 移除游戏开发者
+    public fun remove_game_dev(factory: &mut Factory, game_dev: address, ctx: &mut TxContext) {
+        // 只有管理员可以移除
+        assert!(tx_context::sender(ctx) == factory.admin, ENotAuthorized);
+        
+        // 查找开发者的索引
+        let mut i = 0;
+        let len = vector::length(&factory.game_devs);
+        let mut found = false;
+        let mut index = 0;
+        
+        while (i < len) {
+            let dev = *vector::borrow(&factory.game_devs, i);
+            if (dev == game_dev) {
+                found = true;
+                index = i;
+                break
+            };
+            i = i + 1;
+        };
+        
+        // 确保开发者存在
+        assert!(found, EGameDevNotFound);
+        
+        // 移除开发者
+        vector::remove(&mut factory.game_devs, index);
+        
+        // 发送事件
+        event::emit(GameDevRemoved {
+            game_dev
+        });
     }
 
     // 获取游戏开发者列表

@@ -96,6 +96,11 @@ export interface RegisterGameDevParams {
   developer: string;    // 开发者地址
 }
 
+export interface RemoveGameDevParams {
+  factoryId: string;    // Factory 对象 ID
+  developer: string;    // 要移除的开发者地址
+}
+
 export interface UpdatePlatformRatioParams {
   factoryId: string;    // Factory 对象 ID
   ratio: number;        // 新的分成比例 (0-100)

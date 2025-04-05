@@ -372,6 +372,85 @@ module sui_billboard_nft::billboard_nft_tests {
     }
 
     #[test]
+    fun test_remove_game_dev() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 验证游戏开发者已注册
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let factory = ts::take_shared<Factory>(&scenario);
+            assert!(factory::is_game_dev(&factory, GAME_DEV), 0);
+            ts::return_shared(factory);
+        };
+        
+        // 管理员移除游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::remove_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 验证游戏开发者已被移除
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let factory = ts::take_shared<Factory>(&scenario);
+            assert!(!factory::is_game_dev(&factory, GAME_DEV), 0);
+            ts::return_shared(factory);
+        };
+        
+        ts::end(scenario);
+    }
+    
+    #[test]
+    #[expected_failure(abort_code = sui_billboard_nft::factory::EGameDevNotFound)]
+    fun test_remove_nonexistent_game_dev() {
+        let mut scenario = init_test();
+        
+        // 管理员尝试移除不存在的游戏开发者，预期失败
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::remove_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = billboard_nft::ENotAdmin)]
+    fun test_remove_game_dev_not_admin() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 非管理员尝试移除游戏开发者，预期失败
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::remove_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        ts::end(scenario);
+    }
+
+    #[test]
     fun test_renew_lease() {
         let mut scenario = init_test();
         

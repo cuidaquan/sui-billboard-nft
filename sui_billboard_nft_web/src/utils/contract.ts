@@ -1,7 +1,7 @@
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { SuiClient } from '@mysten/sui.js/client';
 import { CONTRACT_CONFIG, NETWORKS, DEFAULT_NETWORK, USE_MOCK_DATA } from '../config/config';
-import { BillboardNFT, AdSpace, PurchaseAdSpaceParams, UpdateNFTContentParams, RenewNFTParams, CreateAdSpaceParams } from '../types';
+import { BillboardNFT, AdSpace, PurchaseAdSpaceParams, UpdateNFTContentParams, RenewNFTParams, CreateAdSpaceParams, RemoveGameDevParams } from '../types';
 
 // 创建 SUI 客户端
 export const createSuiClient = (network = DEFAULT_NETWORK) => {
@@ -485,4 +485,20 @@ export async function getGameDevsFromFactory(factoryId: string): Promise<string[
     console.error('获取游戏开发者列表失败:', error);
     return [];
   }
+}
+
+// 移除游戏开发者的交易
+export function removeGameDevTx(params: RemoveGameDevParams): TransactionBlock {
+  const txb = new TransactionBlock();
+  
+  // 调用合约的 remove_game_dev 函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::remove_game_dev`,
+    arguments: [
+      txb.object(params.factoryId),  // Factory 对象
+      txb.pure(params.developer),    // 开发者地址
+    ],
+  });
+  
+  return txb;
 }
