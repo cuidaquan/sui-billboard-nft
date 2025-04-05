@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm } from 'antd';
+import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm, Row, Col, Spin } from 'antd';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams } from '../types';
-import { createAdSpaceTx, registerGameDevTx, removeGameDevTx } from '../utils/contract';
+import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams, AdSpace } from '../types';
+import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces } from '../utils/contract';
 import { CONTRACT_CONFIG } from '../config/config';
 import './Manage.scss';
 
@@ -17,6 +17,9 @@ const ManagePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
   const [registeredDevs, setRegisteredDevs] = useState<string[]>([]);
+  const [activeKey, setActiveKey] = useState<string>("create");
+  const [myAdSpaces, setMyAdSpaces] = useState<AdSpace[]>([]);
+  const [loadingAdSpaces, setLoadingAdSpaces] = useState<boolean>(false);
   
   const account = useCurrentAccount();
   const suiClient = useSuiClient();
@@ -42,6 +45,11 @@ const ManagePage: React.FC = () => {
           const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
           setRegisteredDevs(devs);
         }
+        
+        // 如果是游戏开发者，获取其创建的广告位
+        if (role === UserRole.GAME_DEV) {
+          loadMyAdSpaces();
+        }
       } catch (err) {
         console.error('检查用户角色失败:', err);
         message.error('检查用户角色失败');
@@ -51,14 +59,55 @@ const ManagePage: React.FC = () => {
     checkUserRole();
   }, [account, suiClient]);
 
+  // 加载开发者创建的广告位
+  const loadMyAdSpaces = async () => {
+    if (!account) return;
+    
+    try {
+      setLoadingAdSpaces(true);
+      const adSpaces = await getCreatedAdSpaces(account.address);
+      setMyAdSpaces(adSpaces);
+    } catch (err) {
+      console.error('获取开发者广告位失败:', err);
+      message.error('获取广告位列表失败');
+    } finally {
+      setLoadingAdSpaces(false);
+    }
+  };
+
   // 创建广告位表单提交
   const handleCreateAdSpace = async (values: any) => {
     try {
       setLoading(true);
       setError(null);
       
+      console.log('创建广告位，输入参数:', values);
+      
+      // 验证必填字段
+      if (!values.gameId || !values.location || !values.size || !values.price) {
+        throw new Error('请完整填写所有必填字段');
+      }
+      
+      // 尺寸验证 - 确保格式符合要求
+      if (values.size !== '小' && values.size !== '中' && values.size !== '大' && values.size !== '超大') {
+        throw new Error('尺寸格式无效，请选择有效的尺寸选项');
+      }
+      
+      // 价格验证 - 确保价格大于0
+      if (Number(values.price) <= 0) {
+        throw new Error('价格必须大于0');
+      }
+      
       // 将价格转换为整数（以MIST为单位，1 SUI = 10^9 MIST）
       const priceInMist = BigInt(Math.floor(Number(values.price) * 1000000000));
+      
+      console.log('转换后的价格(MIST):', priceInMist.toString());
+      
+      // 检查合约配置
+      if (!CONTRACT_CONFIG.FACTORY_OBJECT_ID || !CONTRACT_CONFIG.PACKAGE_ID || !CONTRACT_CONFIG.MODULE_NAME || !CONTRACT_CONFIG.CLOCK_ID) {
+        console.error('合约配置不完整:', CONTRACT_CONFIG);
+        throw new Error('系统配置错误: 合约参数不完整');
+      }
       
       const params: CreateAdSpaceParams = {
         factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
@@ -69,30 +118,76 @@ const ManagePage: React.FC = () => {
         clockId: CONTRACT_CONFIG.CLOCK_ID
       };
       
+      console.log('准备创建广告位，参数:', params);
+      
       // 创建交易
       const txb = createAdSpaceTx(params);
       
+      console.log('交易创建成功，准备执行');
+      
       // 执行交易
       try {
-        await signAndExecute({
-          transaction: txb.serialize()
+        // 序列化交易
+        const serializedTx = txb.serialize();
+        console.log('交易序列化成功:', JSON.stringify(serializedTx));
+        
+        // 显示交易执行中状态
+        message.loading({ content: '正在创建广告位...', key: 'createAdSpace', duration: 0 });
+        
+        // 执行交易
+        const txResponse = await signAndExecute({
+          transaction: serializedTx
         });
         
-        console.log('交易执行成功');
+        console.log('交易执行成功，响应:', txResponse);
         
-        // 交易成功后直接执行后续操作
-        message.success('广告位创建成功！');
-        adSpaceForm.resetFields();
+        // 交易成功后，显示成功消息
+        message.success({ content: '广告位创建成功！', key: 'createAdSpace', duration: 2 });
+        
+        // 等待一段时间刷新广告位列表
+        setTimeout(async () => {
+          try {
+            await loadMyAdSpaces();
+            // 切换到我的广告位标签页
+            setActiveKey('myAdSpaces');
+          } catch (loadErr) {
+            console.error('刷新广告位列表失败:', loadErr);
+          }
+        }, 1000);
       } catch (txError) {
         console.error('交易执行失败:', txError);
         const errorMsg = txError instanceof Error ? txError.message : String(txError);
-        setError(`交易执行失败: ${errorMsg}`);
+        // 检查特定错误类型并提供更具体的错误信息
+        if (errorMsg.includes('ENotGameDev')) {
+          setError(`交易执行失败: 您不是注册的游戏开发者`);
+        } else if (errorMsg.includes('InsufficientGas')) {
+          setError(`交易执行失败: gas 费不足，请确保您的钱包中有足够的 SUI`);
+        } else if (errorMsg.includes('InvalidParams') || errorMsg.includes('Invalid params')) {
+          setError(`交易执行失败: 提供给智能合约的参数无效，请检查游戏ID、位置和尺寸格式是否符合要求`);
+          console.error('交易参数:', params);
+        } else {
+          setError(`交易执行失败: ${errorMsg}`);
+        }
+        
+        message.error({ content: '广告位创建失败，请稍后重试', key: 'createAdSpace', duration: 2 });
       }
     } catch (err) {
       console.error('创建广告位失败:', err);
-      setError('创建广告位失败，请检查输入并重试。');
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`创建广告位失败: ${errorMsg}`);
+      message.error('创建广告位失败，请稍后重试');
     } finally {
       setLoading(false);
+    }
+  };
+  
+  // 处理标签页切换
+  const handleTabChange = (key: string) => {
+    setActiveKey(key);
+    
+    // 如果切换到"我的广告位"标签页，重新加载广告位列表
+    if (key === 'myAdSpaces') {
+      loadMyAdSpaces();
     }
   };
   
@@ -420,7 +515,7 @@ const ManagePage: React.FC = () => {
         <Paragraph>创建和管理您的广告位。</Paragraph>
       </div>
       
-      <Tabs defaultActiveKey="create" className="manage-tabs">
+      <Tabs activeKey={activeKey} onChange={handleTabChange} className="manage-tabs">
         {userRole === UserRole.ADMIN && (
           <TabPane tab="开发者管理" key="devManage">
             <div className="form-container">
@@ -521,98 +616,190 @@ const ManagePage: React.FC = () => {
           </TabPane>
         )}
         
-        <TabPane tab="创建广告位" key="create">
-          <div className="form-container">
-            <Title level={4}>新建广告位</Title>
-            <Paragraph>
-              在此创建新的广告位。创建后，广告位将可供用户购买。
-            </Paragraph>
-            
-            {error && (
-              <Alert 
-                message="错误" 
-                description={error} 
-                type="error" 
-                showIcon 
-                className="error-alert"
-                closable
-                onClose={() => setError(null)}
-              />
-            )}
-            
-            <Form
-              form={adSpaceForm}
-              layout="vertical"
-              onFinish={handleCreateAdSpace}
-              className="create-form"
-            >
-              <Form.Item
-                name="gameId"
-                label="游戏ID"
-                rules={[{ required: true, message: '请输入游戏ID' }]}
-              >
-                <Input placeholder="请输入游戏ID" />
-              </Form.Item>
+        {userRole === UserRole.GAME_DEV && (
+          <TabPane tab="创建广告位" key="create">
+            <div className="form-container">
+              <Title level={4}>新建广告位</Title>
+              <Paragraph>
+                在此创建新的广告位。创建后，广告位将可供用户购买。
+              </Paragraph>
               
-              <Form.Item
-                name="location"
-                label="位置"
-                rules={[{ required: true, message: '请输入位置' }]}
-              >
-                <Input placeholder="请输入位置，如'大厅门口'、'竞技场中心'等" />
-              </Form.Item>
-              
-              <Form.Item
-                name="size"
-                label="尺寸"
-                rules={[{ required: true, message: '请选择尺寸' }]}
-              >
-                <Select placeholder="请选择尺寸">
-                  <Option value="小">小 (128x128)</Option>
-                  <Option value="中">中 (256x256)</Option>
-                  <Option value="大">大 (512x512)</Option>
-                  <Option value="超大">超大 (1024x512)</Option>
-                </Select>
-              </Form.Item>
-              
-              <Form.Item
-                name="price"
-                label="价格 (SUI)"
-                rules={[
-                  { required: true, message: '请输入价格' },
-                  { type: 'number', min: 0.000001, message: '价格必须大于0' }
-                ]}
-              >
-                <InputNumber
-                  placeholder="请输入价格"
-                  step={0.1}
-                  precision={6}
-                  style={{ width: '100%' }}
+              {error && (
+                <Alert 
+                  message="错误" 
+                  description={error} 
+                  type="error" 
+                  showIcon 
+                  className="error-alert"
+                  closable
+                  onClose={() => setError(null)}
                 />
-              </Form.Item>
+              )}
               
-              <Form.Item>
-                <Button 
-                  type="primary" 
-                  htmlType="submit" 
-                  loading={loading}
-                  className="submit-button"
+              <Form
+                form={adSpaceForm}
+                layout="vertical"
+                onFinish={handleCreateAdSpace}
+                className="create-form"
+              >
+                <Form.Item
+                  name="gameId"
+                  label="游戏ID"
+                  rules={[{ required: true, message: '请输入游戏ID' }]}
                 >
-                  创建广告位
-                </Button>
-              </Form.Item>
-            </Form>
-          </div>
-        </TabPane>
+                  <Input placeholder="请输入游戏ID" />
+                </Form.Item>
+                
+                <Form.Item
+                  name="location"
+                  label="位置"
+                  rules={[{ required: true, message: '请输入位置' }]}
+                >
+                  <Input placeholder="请输入位置，如'大厅门口'、'竞技场中心'等" />
+                </Form.Item>
+                
+                <Form.Item
+                  name="size"
+                  label="尺寸"
+                  rules={[{ required: true, message: '请选择尺寸' }]}
+                >
+                  <Select placeholder="请选择尺寸">
+                    <Option value="小">小 (128x128)</Option>
+                    <Option value="中">中 (256x256)</Option>
+                    <Option value="大">大 (512x512)</Option>
+                    <Option value="超大">超大 (1024x512)</Option>
+                  </Select>
+                </Form.Item>
+                
+                <Form.Item
+                  name="price"
+                  label="价格 (SUI)"
+                  rules={[
+                    { required: true, message: '请输入价格' },
+                    { type: 'number', min: 0.000001, message: '价格必须大于0' }
+                  ]}
+                >
+                  <InputNumber
+                    placeholder="请输入价格"
+                    step={0.1}
+                    precision={6}
+                    style={{ width: '100%' }}
+                  />
+                </Form.Item>
+                
+                <Form.Item>
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    loading={loading}
+                    disabled={loading}
+                    className="submit-button"
+                  >
+                    创建广告位
+                  </Button>
+                </Form.Item>
+              </Form>
+            </div>
+          </TabPane>
+        )}
         
-        <TabPane tab="我的广告位" key="myAdSpaces">
-          <div className="coming-soon">
-            <Title level={4}>即将推出</Title>
-            <Paragraph>
-              该功能正在开发中，敬请期待。
-            </Paragraph>
-          </div>
-        </TabPane>
+        {userRole === UserRole.GAME_DEV && (
+          <TabPane tab="我的广告位" key="myAdSpaces">
+            <div className="my-ad-spaces-container">
+              <Title level={4}>我创建的广告位</Title>
+              <Paragraph>
+                您可以在这里查看和管理您创建的所有广告位。
+              </Paragraph>
+              
+              {loadingAdSpaces ? (
+                <div className="loading-container">
+                  <Spin size="large" />
+                  <p>加载广告位中...</p>
+                </div>
+              ) : myAdSpaces.length > 0 ? (
+                <Row gutter={[24, 24]} className="ad-spaces-grid">
+                  {myAdSpaces.map(adSpace => (
+                    <Col xs={24} sm={12} md={8} lg={6} key={adSpace.id}>
+                      <Card
+                        hoverable
+                        className="ad-space-card"
+                        cover={
+                          <div className="card-cover">
+                            <img 
+                              src={adSpace.imageUrl || 'https://via.placeholder.com/300x200?text=广告位'}
+                              alt={adSpace.name} 
+                              className="ad-space-image"
+                            />
+                            <div className="availability-badge">
+                              {adSpace.available ? (
+                                <span className="available">可购买</span>
+                              ) : (
+                                <span className="unavailable">已售出</span>
+                              )}
+                            </div>
+                          </div>
+                        }
+                      >
+                        <Card.Meta
+                          title={adSpace.name}
+                          description={
+                            <>
+                              <div className="ad-space-info">
+                                <Text type="secondary">位置: {adSpace.location}</Text>
+                                <br />
+                                <Text type="secondary">尺寸: {adSpace.dimension.width} x {adSpace.dimension.height}</Text>
+                                <br />
+                                <Text type="secondary">价格: {Number(adSpace.price) / 1000000000} SUI / {adSpace.duration}天</Text>
+                              </div>
+                              <div className="ad-space-actions">
+                                <Button 
+                                  type="primary" 
+                                  size="small" 
+                                  className="action-button"
+                                  onClick={() => {
+                                    // 查看详情功能
+                                    message.info('查看广告位详情功能即将上线');
+                                  }}
+                                >
+                                  查看详情
+                                </Button>
+                                {adSpace.available && (
+                                  <Button 
+                                    type="default" 
+                                    size="small"
+                                    className="action-button"
+                                    onClick={() => {
+                                      // 修改价格功能
+                                      message.info('修改价格功能即将上线');
+                                    }}
+                                  >
+                                    修改价格
+                                  </Button>
+                                )}
+                              </div>
+                            </>
+                          }
+                        />
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              ) : (
+                <Empty 
+                  description="您还没有创建任何广告位" 
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                >
+                  <Button 
+                    type="primary" 
+                    onClick={() => setActiveKey('create')}
+                  >
+                    创建第一个广告位
+                  </Button>
+                </Empty>
+              )}
+            </div>
+          </TabPane>
+        )}
       </Tabs>
     </div>
   );

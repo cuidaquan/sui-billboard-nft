@@ -2,19 +2,26 @@ module sui_billboard_nft::factory {
     use sui::object::{UID, ID};
     use sui::tx_context::TxContext;
     use sui::transfer;
-    use sui::table::{Self, Table};
+    use std::vector;
     use sui::event;
 
     // 错误码
     const ENotAuthorized: u64 = 1;
     const EInvalidPlatformRatio: u64 = 2;
     const EGameDevNotFound: u64 = 3;
+    const EAdSpaceNotFound: u64 = 4;
+
+    // 广告位条目结构
+    public struct AdSpaceEntry has store, copy, drop {
+        ad_space_id: ID,
+        creator: address
+    }
 
     // 工厂结构，用于管理广告位和分成比例
     public struct Factory has key {
         id: UID,
         admin: address,
-        ad_spaces: Table<ID, address>,  // 广告位ID到创建者地址的映射
+        ad_spaces: vector<AdSpaceEntry>,  // 改为vector<AdSpaceEntry>，更容易在JSON中显示
         game_devs: vector<address>, // 游戏开发者地址列表
         platform_ratio: u8   // 平台分成比例，百分比
     }
@@ -48,7 +55,7 @@ module sui_billboard_nft::factory {
         let factory = Factory {
             id: object::new(ctx),
             admin: tx_context::sender(ctx),
-            ad_spaces: table::new<ID, address>(ctx),
+            ad_spaces: vector::empty<AdSpaceEntry>(),
             game_devs: vector::empty<address>(),
             platform_ratio: DEFAULT_PLATFORM_RATIO
         };
@@ -67,7 +74,11 @@ module sui_billboard_nft::factory {
         ad_space_id: ID,
         creator: address
     ) {
-        table::add(&mut factory.ad_spaces, ad_space_id, creator);
+        let entry = AdSpaceEntry {
+            ad_space_id,
+            creator
+        };
+        vector::push_back(&mut factory.ad_spaces, entry);
 
         event::emit(AdSpaceRegistered {
             ad_space_id,
@@ -77,7 +88,18 @@ module sui_billboard_nft::factory {
 
     // 获取广告位创建者
     public fun get_ad_space_creator(factory: &Factory, ad_space_id: ID): address {
-        *table::borrow(&factory.ad_spaces, ad_space_id)
+        let len = vector::length(&factory.ad_spaces);
+        let mut i = 0;
+        
+        while (i < len) {
+            let entry = vector::borrow(&factory.ad_spaces, i);
+            if (entry.ad_space_id == ad_space_id) {
+                return entry.creator
+            };
+            i = i + 1;
+        };
+        
+        abort EAdSpaceNotFound
     }
 
     // 获取管理员地址
@@ -186,5 +208,20 @@ module sui_billboard_nft::factory {
     // 获取平台分成比例
     public fun get_platform_ratio(factory: &Factory): u8 {
         factory.platform_ratio
+    }
+
+    // 获取所有广告位
+    public fun get_all_ad_spaces(factory: &Factory): vector<AdSpaceEntry> {
+        let mut result = vector::empty<AdSpaceEntry>();
+        let len = vector::length(&factory.ad_spaces);
+        let mut i = 0;
+        
+        while (i < len) {
+            let entry = *vector::borrow(&factory.ad_spaces, i);
+            vector::push_back(&mut result, entry);
+            i = i + 1;
+        };
+        
+        result
     }
 }

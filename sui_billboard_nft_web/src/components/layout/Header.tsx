@@ -53,7 +53,7 @@ const AppHeader: React.FC = () => {
     // 先强制断开任何现有连接，然后再显示模态框
     forceDisconnectWallet(() => {
       // 在断开连接回调后显示模态框
-      setIsModalVisible(true);
+    setIsModalVisible(true);
     });
   };
   
@@ -320,10 +320,10 @@ const AppHeader: React.FC = () => {
           },
           // 只有管理员和游戏开发者才显示管理中心
           ...(userRole === UserRole.ADMIN || userRole === UserRole.GAME_DEV ? [
-            {
-              key: '/manage',
-              icon: <UserOutlined />,
-              label: <Link to="/manage">管理中心</Link>,
+          {
+            key: '/manage',
+            icon: <UserOutlined />,
+            label: <Link to="/manage">管理中心</Link>,
             }
           ] : []),
         ]}
@@ -332,24 +332,24 @@ const AppHeader: React.FC = () => {
       <Space className="connect-wallet">
         {currentAccount ? (
           <Dropdown menu={{ items: walletMenuItems }} placement="bottomRight">
-            <Button 
-              type="primary"
-              style={{
-                backgroundColor: '#1677ff',
-                color: 'white',
-                borderRadius: '4px',
-                padding: '0 16px',
-                height: '32px',
-                fontWeight: 'bold',
+          <Button 
+            type="primary"
+            style={{
+              backgroundColor: '#1677ff',
+              color: 'white',
+              borderRadius: '4px',
+              padding: '0 16px',
+              height: '32px',
+              fontWeight: 'bold',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px'
-              }}
-            >
+            }}
+          >
               <Avatar size="small" icon={<WalletOutlined />} style={{ backgroundColor: '#096dd9' }} />
               {getShortAddress(currentAccount.address)}
-            </Button>
+          </Button>
           </Dropdown>
         ) : (
           <Button 
@@ -419,13 +419,13 @@ const AppHeader: React.FC = () => {
                   >
                     安装 Sui Wallet
                   </Button>
-                  <Button 
+              <Button 
                     href="https://chrome.google.com/webstore/detail/ethos-sui-wallet/mcbigmjiafegjnnogedioegffbooigli" 
                     target="_blank"
                     style={{ width: '200px', margin: '0 auto' }}
                   >
                     安装 Ethos Wallet
-                  </Button>
+              </Button>
                 </div>
               </div>
             )}

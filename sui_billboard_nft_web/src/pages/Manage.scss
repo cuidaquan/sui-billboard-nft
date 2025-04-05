@@ -12,15 +12,24 @@
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
   }
   
   .form-container {
-    max-width: 800px;
+    max-width: 600px;
     margin: 0 auto;
-  }
-  
-  .create-form {
-    margin-top: 20px;
+    
+    .error-alert {
+      margin-bottom: 20px;
+    }
+    
+    .create-form {
+      margin-top: 20px;
+      
+      .submit-button {
+        width: 100%;
+      }
+    }
   }
   
   .register-form {
@@ -29,24 +38,23 @@
   
   .register-dev-card {
     margin-bottom: 30px;
-  }
-  
-  .submit-button {
-    width: 100%;
-  }
-  
-  .error-alert {
-    margin-bottom: 20px;
+    
+    .register-form {
+      .submit-button {
+        width: 100%;
+      }
+    }
   }
   
   .connect-wallet-prompt {
     max-width: 600px;
     margin: 40px auto;
+    margin-top: 40px;
   }
   
   .coming-soon {
     text-align: center;
-    padding: 40px 0;
+    padding: 50px 0;
   }
   
   .dev-list-item {
@@ -101,6 +109,109 @@
     
     .ant-empty {
       padding: 32px 0;
+    }
+  }
+  
+  // 我的广告位列表样式
+  .my-ad-spaces-container {
+    padding: 0 10px;
+    
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 0;
+      
+      p {
+        margin-top: 15px;
+        color: #666;
+      }
+    }
+    
+    .ad-spaces-grid {
+      margin-top: 20px;
+      
+      .ad-space-card {
+        margin-bottom: 15px;
+        transition: transform 0.3s;
+        
+        &:hover {
+          transform: translateY(-5px);
+        }
+        
+        .card-cover {
+          height: 160px;
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: #f5f5f5;
+          
+          .ad-space-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          
+          .availability-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            
+            span {
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 12px;
+              
+              &.available {
+                background-color: #52c41a;
+                color: white;
+              }
+              
+              &.unavailable {
+                background-color: #f5222d;
+                color: white;
+              }
+            }
+          }
+        }
+        
+        .ant-card-body {
+          padding: 16px;
+          
+          .ant-card-meta-title {
+            margin-bottom: 8px;
+            white-space: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+          }
+          
+          .ad-space-info {
+            margin-bottom: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+          }
+          
+          .ad-space-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            
+            .action-button {
+              flex: 1;
+              
+              &:not(:last-child) {
+                margin-right: 8px;
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
