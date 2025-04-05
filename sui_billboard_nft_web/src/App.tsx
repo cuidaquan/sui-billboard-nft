@@ -32,7 +32,10 @@ function App() {
         }}
         defaultNetwork={DEFAULT_NETWORK}
       >
-        <WalletProvider>
+        <WalletProvider 
+          autoConnect={false}
+          enableUnsafeBurner={false}
+        >
           <Router>
             <MainLayout>
               <Routes>

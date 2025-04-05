@@ -101,29 +101,58 @@ const ManagePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // 规范化地址格式，确保统一格式用于比较
+      const normalizedAddress = values.devAddress.toLowerCase();
+      
+      // 验证地址格式
+      if (!normalizedAddress.startsWith('0x') || normalizedAddress.length !== 66) {
+        setError('开发者地址格式无效，请输入有效的Sui钱包地址');
+        setLoading(false);
+        return;
+      }
+      
+      // 检查开发者是否已经注册
+      const isDevAlreadyRegistered = registeredDevs.some(
+        dev => dev.toLowerCase() === normalizedAddress
+      );
+      
+      if (isDevAlreadyRegistered) {
+        setError('该地址已经注册为游戏开发者');
+        setLoading(false);
+        return;
+      }
 
       // 创建交易
-      const params: RegisterGameDevParams = {
+      const params = {
         factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
-        developer: values.devAddress
+        developer: normalizedAddress
       };
 
       const txb = registerGameDevTx(params);
       
       // 执行交易
       try {
-        await signAndExecute({
+        const result = await signAndExecute({
           transaction: txb.serialize()
         });
         
-        console.log('交易执行成功');
+        console.log('交易执行成功:', result);
         
-        // 交易成功后直接执行后续操作
+        // 交易成功后才执行后续操作
         message.success('游戏开发者注册成功！');
         devRegisterForm.resetFields();
         
-        // 更新开发者列表
-        setRegisteredDevs([...registeredDevs, values.devAddress]);
+        // 重新从合约获取最新的开发者列表
+        try {
+          const { getGameDevsFromFactory } = await import('../utils/contract');
+          const updatedDevs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+          setRegisteredDevs(updatedDevs);
+        } catch (fetchError) {
+          console.error('更新开发者列表失败:', fetchError);
+          // 如果获取失败，至少将新注册的开发者添加到列表中
+          setRegisteredDevs(prev => [...prev, normalizedAddress]);
+        }
       } catch (txError) {
         console.error('交易执行失败:', txError);
         const errorMsg = txError instanceof Error ? txError.message : String(txError);

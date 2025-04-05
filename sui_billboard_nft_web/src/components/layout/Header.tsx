@@ -19,6 +19,7 @@ const AppHeader: React.FC = () => {
   const suiClient = useSuiClient();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
+  const [forceUpdateKey, setForceUpdateKey] = useState(0);
   
   // 获取并存储用户角色
   useEffect(() => {
@@ -49,75 +50,203 @@ const AppHeader: React.FC = () => {
   
   // 显示钱包选择模态框
   const showModal = () => {
-    setIsModalVisible(true);
-  };
-
-  // 关闭钱包选择模态框
-  const handleCancel = () => {
-    setIsModalVisible(false);
+    // 先强制断开任何现有连接，然后再显示模态框
+    forceDisconnectWallet(() => {
+      // 在断开连接回调后显示模态框
+      setIsModalVisible(true);
+    });
   };
   
-  // 连接钱包
-  const handleConnectWallet = async (walletName?: string) => {
+  // 强制断开钱包并清除所有缓存
+  const forceDisconnectWallet = (callback?: () => void) => {
     try {
-      // 获取可用的钱包列表
-      if (wallets.length > 0) {
-        // 如果指定了钱包名称，直接连接该钱包
-        if (walletName) {
-          const wallet = wallets.find(w => w.name === walletName);
-          if (wallet) {
-            connectWallet({ wallet });
-            message.loading({
-              content: '正在连接钱包...',
-              key: 'walletConnect'
-            });
-            setIsModalVisible(false);
-          } else {
-            message.error('未找到指定的钱包');
-          }
-        }
-        // 如果只有一个钱包且未指定钱包名称，直接选择它
-        else if (wallets.length === 1) {
-          connectWallet({ wallet: wallets[0] });
-          message.loading({
-            content: '正在连接钱包...',
-            key: 'walletConnect'
-          });
-          setIsModalVisible(false);
-        } else {
-          // 如果有多个钱包且未指定钱包名称，显示钱包列表供用户选择
-          message.info('请选择要连接的钱包');
-          // 这里保持模态框打开，让用户可以看到钱包列表
-        }
-      } else {
-        notification.warning({
-          message: '未检测到钱包扩展',
-          description: '请安装支持 Sui 的钱包扩展，如 Sui Wallet 或 Ethos Wallet。',
-          duration: 10,
-          placement: 'topRight'
-        });
+      console.log('强制断开钱包连接开始...');
+      
+      // 执行断开连接操作
+      if (currentAccount) {
+        disconnectWallet();
       }
+      
+      console.log('清除缓存...');
+      // 彻底清除所有缓存
+      clearWalletCache();
+      
+      // 重置状态
+      setUserRole(UserRole.USER);
+      setForceUpdateKey(prev => prev + 1);
+      
+      console.log('强制断开钱包完成');
+      
+      // 延迟执行回调，确保断开操作已完成
+      setTimeout(() => {
+        callback && callback();
+      }, 300);
     } catch (error) {
-      message.error('连接钱包失败');
-      console.error('连接钱包错误:', error);
+      console.error('强制断开钱包错误:', error);
+      // 即使出错也尝试调用回调
+      callback && callback();
     }
   };
   
-  // 断开钱包连接
-  const handleDisconnect = async () => {
-    Modal.confirm({
-      title: '断开钱包连接',
-      content: '确定要断开钱包连接吗？',
-      onOk: () => {
-        try {
-          disconnectWallet();
-          message.success('钱包已断开连接');
-        } catch (error) {
-          message.error('断开钱包连接失败');
-          console.error('断开钱包连接错误:', error);
+  // 清除钱包缓存的函数
+  const clearWalletCache = () => {
+    console.log('开始清除钱包缓存...');
+    
+    try {
+      // 定义可能与钱包相关的键名部分
+      const walletRelatedKeys = ['wallet', 'sui', 'dapp', 'connect', 'account', 'adapter', 'role'];
+      
+      // 清除localStorage中的所有钱包相关数据
+      localStorage.removeItem('userRole');
+      
+      // 尝试清除localStorage中所有可能的钱包相关键
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          const lowerKey = key.toLowerCase();
+          if (walletRelatedKeys.some(wk => lowerKey.includes(wk))) {
+            console.log('清除localStorage键:', key);
+            localStorage.removeItem(key);
+            // 重新检查索引，因为我们删除了一个项目
+            i--;
+          }
         }
       }
+      
+      // 同样清除sessionStorage
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key) {
+          const lowerKey = key.toLowerCase();
+          if (walletRelatedKeys.some(wk => lowerKey.includes(wk))) {
+            console.log('清除sessionStorage键:', key);
+            sessionStorage.removeItem(key);
+            // 重新检查索引，因为我们删除了一个项目
+            i--;
+          }
+        }
+      }
+      
+      console.log('钱包缓存清除完成');
+    } catch (error) {
+      console.error('清除钱包缓存错误:', error);
+    }
+  };
+  
+  // 显示钱包选择模态框或直接连接
+  const connectWalletHandler = () => {
+    try {
+      // 强制断开当前连接
+      forceDisconnectWallet(() => {
+        // 检查可用钱包
+        if (wallets.length === 1) {
+          // 只有一个钱包，直接连接
+          console.log('只有一个钱包，直接连接:', wallets[0].name);
+          connectWithWallet(wallets[0]);
+        } else if (wallets.length > 1) {
+          // 多个钱包，显示选择模态框
+          setIsModalVisible(true);
+        } else {
+          // 没有钱包，显示警告
+          notification.warning({
+            message: '未检测到钱包扩展',
+            description: '请安装支持 Sui 的钱包扩展，如 Sui Wallet 或 Ethos Wallet。',
+            duration: 10,
+            placement: 'topRight'
+          });
+        }
+      });
+    } catch (error) {
+      console.error('处理钱包连接错误:', error);
+      message.error('钱包连接操作失败');
+    }
+  };
+  
+  // 使用指定钱包连接
+  const connectWithWallet = (wallet: any) => {
+    console.log('连接钱包:', wallet.name);
+    
+    // 强制弹出钱包选择窗口
+    connectWallet({ 
+      wallet,
+      silent: false // 设置silent为false，确保每次都弹出钱包窗口
     });
+    
+    message.loading({
+      content: '正在连接钱包...',
+      key: 'walletConnect'
+    });
+    
+    // 关闭模态窗口
+    setIsModalVisible(false);
+  };
+  
+  // 断开钱包连接 - 直接实现不通过Modal
+  const directDisconnect = () => {
+    try {
+      console.log('开始直接断开钱包连接...');
+      
+      // 先执行断开连接操作
+      if (currentAccount) {
+        disconnectWallet();
+        
+        // 显示消息
+        message.loading({
+          content: '正在断开钱包连接...',
+          key: 'walletDisconnect'
+        });
+      }
+      
+      // 清除所有钱包相关的存储
+      clearAllWalletData();
+      
+      // 为确保彻底断开，直接刷新页面
+      setTimeout(() => {
+        message.success({
+          content: '钱包已断开连接，页面将刷新',
+          key: 'walletDisconnect',
+          duration: 1
+        });
+        
+        // 强制刷新整个页面
+        window.location.href = window.location.origin + window.location.pathname;
+      }, 500);
+    } catch (error) {
+      console.error('断开钱包连接错误:', error);
+      message.error('断开钱包连接失败，请刷新页面重试');
+      
+      // 出错时也尝试刷新页面
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    }
+  };
+  
+  // 彻底清除所有钱包相关数据
+  const clearAllWalletData = () => {
+    console.log('彻底清除所有钱包相关数据...');
+    
+    try {
+      // 清除所有localStorage数据
+      localStorage.clear();
+      
+      // 清除所有sessionStorage数据
+      sessionStorage.clear();
+      
+      // 清除所有钱包相关cookie
+      document.cookie.split(';').forEach(cookie => {
+        const [name] = cookie.trim().split('=');
+        if (name.toLowerCase().includes('wallet') || 
+            name.toLowerCase().includes('sui') || 
+            name.toLowerCase().includes('dapp')) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        }
+      });
+      
+      console.log('所有钱包数据已清除');
+    } catch (error) {
+      console.error('清除钱包数据出错:', error);
+    }
   };
   
   // 复制钱包地址
@@ -153,8 +282,8 @@ const AppHeader: React.FC = () => {
     {
       key: 'disconnect',
       icon: <LogoutOutlined />,
-      label: '断开连接',
-      onClick: handleDisconnect,
+      label: <div onClick={directDisconnect}>断开连接</div>,
+      onClick: undefined,
     },
   ];
   
@@ -225,7 +354,7 @@ const AppHeader: React.FC = () => {
         ) : (
           <Button 
             type="primary"
-            onClick={showModal}
+            onClick={connectWalletHandler}
             loading={isConnecting}
             style={{
               backgroundColor: '#1677ff',
@@ -245,7 +374,7 @@ const AppHeader: React.FC = () => {
         <Modal
           title="连接钱包"
           open={isModalVisible}
-          onCancel={handleCancel}
+          onCancel={() => setIsModalVisible(false)}
           footer={null}
           centered
         >
@@ -257,7 +386,7 @@ const AppHeader: React.FC = () => {
                   <Button 
                     key={wallet.name}
                     type="primary"
-                    onClick={() => handleConnectWallet(wallet.name)}
+                    onClick={() => connectWithWallet(wallet)}
                     style={{
                       backgroundColor: '#1677ff',
                       color: 'white',
