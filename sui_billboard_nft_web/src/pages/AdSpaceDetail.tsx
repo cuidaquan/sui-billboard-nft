@@ -68,7 +68,12 @@ const AdSpaceDetailPage: React.FC = () => {
       <Card>
         <div className="ad-space-content">
           <div className="ad-space-image">
-            <img src={adSpace.imageUrl} alt={adSpace.name} />
+            <div className="ad-space-detail-placeholder">
+              <div className="placeholder-content">
+                <Title level={3}>{adSpace.name}</Title>
+                <Paragraph>{adSpace.dimension.width} x {adSpace.dimension.height} 像素</Paragraph>
+              </div>
+            </div>
           </div>
           <div className="ad-space-info">
             <Title level={4}>{adSpace.name}</Title>
@@ -76,6 +81,9 @@ const AdSpaceDetailPage: React.FC = () => {
             <Paragraph>位置: {adSpace.location}</Paragraph>
             <Paragraph>尺寸: {adSpace.dimension.width} x {adSpace.dimension.height} 像素</Paragraph>
             <Paragraph>价格: {formatSuiAmount(adSpace.price)} SUI / {adSpace.duration}天</Paragraph>
+            {adSpace.price_description && (
+              <Paragraph className="price-description">{adSpace.price_description}</Paragraph>
+            )}
             
             {adSpace.available ? (
               <Link to={`/ad-spaces/${adSpace.id}/purchase`}>

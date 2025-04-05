@@ -12,6 +12,8 @@ export interface AdSpace {
   owner: string | null;
   available: boolean;
   location: string; // 位置描述
+  isExample?: boolean; // 标记是否为示例数据
+  price_description?: string; // 价格描述，说明价格的计算方式
 }
 
 export interface NFTBillboard {

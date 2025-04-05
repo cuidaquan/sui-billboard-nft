@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm, Row, Col, Spin } from 'antd';
+import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm, Row, Col, Spin, Tooltip } from 'antd';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams, AdSpace } from '../types';
 import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces } from '../utils/contract';
 import { CONTRACT_CONFIG } from '../config/config';
 import './Manage.scss';
+import { ReloadOutlined } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
 const { TabPane } = Tabs;
@@ -59,17 +60,75 @@ const ManagePage: React.FC = () => {
     checkUserRole();
   }, [account, suiClient]);
 
+  // 监听activeKey变化，当显示"我的广告位"标签时自动加载数据
+  useEffect(() => {
+    if (activeKey === 'myAdSpaces' && account && userRole === UserRole.GAME_DEV) {
+      message.loading({ content: '正在加载广告位数据...', key: 'loadAdSpaces', duration: 0 });
+      loadMyAdSpaces()
+        .then(() => {
+          message.success({ content: '广告位数据已加载', key: 'loadAdSpaces', duration: 2 });
+        })
+        .catch((error) => {
+          console.error('加载广告位数据失败:', error);
+          message.error({ content: '加载广告位数据失败', key: 'loadAdSpaces', duration: 2 });
+        });
+    }
+  }, [activeKey, account, userRole]);
+
   // 加载开发者创建的广告位
   const loadMyAdSpaces = async () => {
-    if (!account) return;
+    if (!account) {
+      console.log('无法加载广告位：账户未连接');
+      return;
+    }
     
     try {
       setLoadingAdSpaces(true);
+      console.log('开始加载开发者创建的广告位，开发者地址:', account.address);
+      
+      // 先检查是否为游戏开发者
+      const { checkIsGameDev } = await import('../utils/auth');
+      const isGameDev = await checkIsGameDev(account.address);
+      console.log('游戏开发者验证结果:', isGameDev);
+      
+      if (!isGameDev) {
+        console.warn('当前用户不是游戏开发者，无法加载广告位');
+        message.warning('您不是注册的游戏开发者，无法查看广告位');
+        setMyAdSpaces([]);
+        return;
+      }
+      
+      // 加载广告位前，清空当前缓存的广告位数据
+      setMyAdSpaces([]);
+      
+      // 禁用缓存，直接从区块链获取最新数据
+      console.log('正在从区块链获取最新广告位数据...');
+      const { getCreatedAdSpaces } = await import('../utils/contract');
+      
+      // 记录获取广告位的时间
+      const startTime = new Date().getTime();
       const adSpaces = await getCreatedAdSpaces(account.address);
-      setMyAdSpaces(adSpaces);
+      const endTime = new Date().getTime();
+      console.log(`成功加载广告位数据 (耗时: ${endTime - startTime}ms):`, adSpaces);
+      
+      // 过滤掉示例广告位数据
+      const realAdSpaces = adSpaces.filter(adSpace => !adSpace.isExample);
+      console.log('过滤后的实际广告位数据:', realAdSpaces);
+      
+      if (realAdSpaces.length > 0) {
+        // 有真实广告位数据时，显示真实数据
+        setMyAdSpaces(realAdSpaces);
+      } else if (adSpaces.length > 0 && adSpaces.some(ad => ad.isExample)) {
+        // 只有示例数据时，也显示示例数据来指导用户
+        setMyAdSpaces(adSpaces);
+      } else {
+        // 无数据时，显示空状态
+        setMyAdSpaces([]);
+      }
     } catch (err) {
       console.error('获取开发者广告位失败:', err);
       message.error('获取广告位列表失败');
+      setMyAdSpaces([]);
     } finally {
       setLoadingAdSpaces(false);
     }
@@ -144,16 +203,105 @@ const ManagePage: React.FC = () => {
         // 交易成功后，显示成功消息
         message.success({ content: '广告位创建成功！', key: 'createAdSpace', duration: 2 });
         
-        // 等待一段时间刷新广告位列表
+        // 等待足够长的时间让交易确认后再加载广告位列表
         setTimeout(async () => {
           try {
-            await loadMyAdSpaces();
-            // 切换到我的广告位标签页
-            setActiveKey('myAdSpaces');
+            message.loading({ content: '正在加载最新数据...', key: 'refreshAdSpaces', duration: 0 });
+            
+            // 确保account存在
+            if (!account) {
+              console.error('无法检测新广告位: 账户未连接');
+              message.error({ 
+                content: '获取账户信息失败，请刷新页面重试', 
+                key: 'refreshAdSpaces', 
+                duration: 3 
+              });
+              return;
+            }
+            
+            // 尝试多次获取最新的广告位数据
+            let attempts = 0;
+            const maxAttempts = 3;
+            let success = false;
+            
+            // 获取事务中的游戏ID，用于后续验证
+            const createdGameId = values.gameId;
+            console.log(`等待游戏ID为"${createdGameId}"的广告位出现在区块链上...`);
+            
+            while (attempts < maxAttempts && !success) {
+              attempts++;
+              // 延迟时间随尝试次数增加
+              const delay = 3000 * attempts;
+              console.log(`尝试第 ${attempts} 次获取广告位数据，等待 ${delay}ms...`);
+              
+              // 等待一段时间再获取数据，确保链上数据已更新
+              await new Promise(resolve => setTimeout(resolve, delay));
+              
+              try {
+                // 再次检查account是否存在
+                if (!account) {
+                  console.error('执行期间账户状态发生变化');
+                  break;
+                }
+                
+                // 直接从合约获取最新数据，而不通过React状态
+                const { getCreatedAdSpaces } = await import('../utils/contract');
+                const latestAdSpaces = await getCreatedAdSpaces(account.address);
+                
+                // 检查新获取的数据中是否包含刚创建的广告位（通过游戏ID匹配）
+                const foundNewAdSpace = latestAdSpaces.some(
+                  adSpace => 
+                    !adSpace.isExample && 
+                    adSpace.name && 
+                    adSpace.name.includes(createdGameId)
+                );
+                
+                if (foundNewAdSpace) {
+                  success = true;
+                  console.log('成功获取到新创建的广告位数据');
+                  
+                  // 成功找到后，更新React状态，保存最新数据
+                  setMyAdSpaces(latestAdSpaces.filter(adSpace => !adSpace.isExample));
+                } else {
+                  console.log('尚未检测到新创建的广告位数据，将继续重试');
+                }
+              } catch (error) {
+                console.error(`第 ${attempts} 次获取广告位数据失败:`, error);
+              }
+            }
+            
+            if (success) {
+              message.success({ 
+                content: '广告位数据已更新', 
+                key: 'refreshAdSpaces', 
+                duration: 2 
+              });
+              // 成功获取数据后再切换到广告位展示页面
+              setActiveKey('myAdSpaces');
+            } else {
+              message.info({ 
+                content: '新创建的广告位可能需要一段时间才能显示，请稍后手动刷新', 
+                key: 'refreshAdSpaces', 
+                duration: 4 
+              });
+              
+              // 切换标签页并启动loadMyAdSpaces来获取数据
+              setActiveKey('myAdSpaces');
+              loadMyAdSpaces();
+            }
           } catch (loadErr) {
             console.error('刷新广告位列表失败:', loadErr);
+            message.info({ 
+              content: '无法自动获取最新数据，请稍后手动刷新页面', 
+              key: 'refreshAdSpaces', 
+              duration: 3 
+            });
+            
+            // 切换标签页并启动loadMyAdSpaces来尝试获取数据
+            setActiveKey('myAdSpaces');
+            loadMyAdSpaces();
           }
-        }, 1000);
+        }, 5000); // 增加初始等待时间到5秒
       } catch (txError) {
         console.error('交易执行失败:', txError);
         const errorMsg = txError instanceof Error ? txError.message : String(txError);
@@ -184,11 +332,7 @@ const ManagePage: React.FC = () => {
   // 处理标签页切换
   const handleTabChange = (key: string) => {
     setActiveKey(key);
-    
-    // 如果切换到"我的广告位"标签页，重新加载广告位列表
-    if (key === 'myAdSpaces') {
-      loadMyAdSpaces();
-    }
+    // useEffect会自动处理当切换到'myAdSpaces'标签时的数据加载
   };
   
   // 注册游戏开发者
@@ -572,7 +716,11 @@ const ManagePage: React.FC = () => {
                     renderItem={(dev) => (
                       <List.Item className="dev-address-item">
                         <div className="address-content">
-                          <Text className="address-text">{dev}</Text>
+                          <Tooltip title={dev} placement="topLeft">
+                            <Text className="address-text">
+                              {dev.substring(0, 10)}...{dev.substring(dev.length - 8)}
+                            </Text>
+                          </Tooltip>
                           <div className="button-group">
                             <Button
                               type="link"
@@ -705,89 +853,21 @@ const ManagePage: React.FC = () => {
         
         {userRole === UserRole.GAME_DEV && (
           <TabPane tab="我的广告位" key="myAdSpaces">
-            <div className="my-ad-spaces-container">
-              <Title level={4}>我创建的广告位</Title>
-              <Paragraph>
-                您可以在这里查看和管理您创建的所有广告位。
-              </Paragraph>
+            <div className="ad-spaces-container">
+              <div className="ad-spaces-header">
+                <Title level={4}>我创建的广告位</Title>
+              </div>
               
               {loadingAdSpaces ? (
                 <div className="loading-container">
                   <Spin size="large" />
-                  <p>加载广告位中...</p>
+                  <p className="loading-text">加载广告位数据中...</p>
                 </div>
-              ) : myAdSpaces.length > 0 ? (
-                <Row gutter={[24, 24]} className="ad-spaces-grid">
-                  {myAdSpaces.map(adSpace => (
-                    <Col xs={24} sm={12} md={8} lg={6} key={adSpace.id}>
-                      <Card
-                        hoverable
-                        className="ad-space-card"
-                        cover={
-                          <div className="card-cover">
-                            <img 
-                              src={adSpace.imageUrl || 'https://via.placeholder.com/300x200?text=广告位'}
-                              alt={adSpace.name} 
-                              className="ad-space-image"
-                            />
-                            <div className="availability-badge">
-                              {adSpace.available ? (
-                                <span className="available">可购买</span>
-                              ) : (
-                                <span className="unavailable">已售出</span>
-                              )}
-                            </div>
-                          </div>
-                        }
-                      >
-                        <Card.Meta
-                          title={adSpace.name}
-                          description={
-                            <>
-                              <div className="ad-space-info">
-                                <Text type="secondary">位置: {adSpace.location}</Text>
-                                <br />
-                                <Text type="secondary">尺寸: {adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-                                <br />
-                                <Text type="secondary">价格: {Number(adSpace.price) / 1000000000} SUI / {adSpace.duration}天</Text>
-                              </div>
-                              <div className="ad-space-actions">
-                                <Button 
-                                  type="primary" 
-                                  size="small" 
-                                  className="action-button"
-                                  onClick={() => {
-                                    // 查看详情功能
-                                    message.info('查看广告位详情功能即将上线');
-                                  }}
-                                >
-                                  查看详情
-                                </Button>
-                                {adSpace.available && (
-                                  <Button 
-                                    type="default" 
-                                    size="small"
-                                    className="action-button"
-                                    onClick={() => {
-                                      // 修改价格功能
-                                      message.info('修改价格功能即将上线');
-                                    }}
-                                  >
-                                    修改价格
-                                  </Button>
-                                )}
-                              </div>
-                            </>
-                          }
-                        />
-                      </Card>
-                    </Col>
-                  ))}
-                </Row>
-              ) : (
-                <Empty 
-                  description="您还没有创建任何广告位" 
+              ) : myAdSpaces.length === 0 ? (
+                <Empty
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="您还没有创建任何广告位"
+                  className="empty-ad-spaces"
                 >
                   <Button 
                     type="primary" 
@@ -796,6 +876,86 @@ const ManagePage: React.FC = () => {
                     创建第一个广告位
                   </Button>
                 </Empty>
+              ) : (
+                <List
+                  grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }}
+                  dataSource={myAdSpaces}
+                  renderItem={adSpace => (
+                    <List.Item>
+                      <Card
+                        hoverable
+                        cover={
+                          <div className="ad-space-image-placeholder">
+                            <div className="placeholder-content">
+                              <Typography.Title level={5}>{adSpace.name}</Typography.Title>
+                              <Typography.Text>{adSpace.dimension.width}x{adSpace.dimension.height}</Typography.Text>
+                            </div>
+                          </div>
+                        }
+                        className={adSpace.isExample ? 'example-ad-space' : ''}
+                      >
+                        <Card.Meta
+                          title={adSpace.name}
+                          description={adSpace.description}
+                        />
+                        <div className="card-details">
+                          <div className="detail-item">
+                            <Typography.Text type="secondary">位置:</Typography.Text>
+                            <Typography.Text>{adSpace.location}</Typography.Text>
+                          </div>
+                          <div className="detail-item">
+                            <Typography.Text type="secondary">价格:</Typography.Text>
+                            <Typography.Text>{Number(adSpace.price) / 1000000000} SUI/365天</Typography.Text>
+                          </div>
+                          {adSpace.price_description && (
+                            <div className="detail-item price-description">
+                              <Typography.Text type="secondary">{adSpace.price_description}</Typography.Text>
+                            </div>
+                          )}
+                          <div className="detail-item">
+                            <Typography.Text type="secondary">尺寸:</Typography.Text>
+                            <Typography.Text>{adSpace.dimension.width}x{adSpace.dimension.height}</Typography.Text>
+                          </div>
+                          <div className="detail-item">
+                            <Typography.Text type="secondary">状态:</Typography.Text>
+                            <Typography.Text>{adSpace.available ? '可用' : '已租用'}</Typography.Text>
+                          </div>
+                        </div>
+                        {!adSpace.isExample && (
+                          <div className="card-actions">
+                            <Button 
+                              type="primary" 
+                              className="action-button"
+                              onClick={() => {/* 处理编辑广告位操作 */}}
+                            >
+                              编辑
+                            </Button>
+                            <Popconfirm
+                              title="确定要删除这个广告位吗？"
+                              description="删除后无法恢复，且当前所有关联的NFT将无法访问。"
+                              onConfirm={() => {/* 处理删除广告位操作 */}}
+                              okText="确定"
+                              cancelText="取消"
+                            >
+                              <Button danger className="action-button">删除</Button>
+                            </Popconfirm>
+                          </div>
+                        )}
+                        {adSpace.isExample && (
+                          <div className="card-actions">
+                            <Button 
+                              type="primary" 
+                              className="action-button"
+                              onClick={() => setActiveKey('create')}
+                            >
+                              创建第一个广告位
+                            </Button>
+                          </div>
+                        )}
+                      </Card>
+                    </List.Item>
+                  )}
+                />
               )}
             </div>
           </TabPane>

@@ -3,6 +3,8 @@ import { type SuiClient as DappKitSuiClient } from '@mysten/sui/client';
 import { UserRole } from '../types';
 import { CONTRACT_CONFIG } from '../config/config';
 import { SuiObjectResponse, SuiMoveObject } from '@mysten/sui.js/client';
+import { getGameDevsFromFactory } from './contract';
+import { compareAddresses } from './contract';
 
 /**
  * 检查用户是否拥有平台管理员权限
@@ -89,76 +91,43 @@ export async function checkIsAdmin(client: SuiJsClient | DappKitSuiClient, addre
  * @param address 用户钱包地址（用于发送交易）
  * @returns 是否拥有游戏开发者权限
  */
-export async function checkIsGameDev(client: SuiJsClient | DappKitSuiClient, address: string): Promise<boolean> {
+export async function checkIsGameDev(address: string | undefined): Promise<boolean> {
   try {
-    // 验证合约配置
-    if (!CONTRACT_CONFIG.PACKAGE_ID || !CONTRACT_CONFIG.MODULE_NAME || !CONTRACT_CONFIG.FACTORY_OBJECT_ID) {
-      console.error('合约配置无效:', {
-        packageId: CONTRACT_CONFIG.PACKAGE_ID,
-        moduleName: CONTRACT_CONFIG.MODULE_NAME,
-        factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID
-      });
-      throw new Error('合约配置无效');
-    }
-
-    // 验证地址格式
-    if (!address?.startsWith('0x')) {
-      console.error('钱包地址格式无效:', address);
-      throw new Error('钱包地址格式无效');
-    }
-
-    console.log('准备检查游戏开发者权限:', {
-      factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
-      address
-    });
-
-    // 获取工厂对象的数据
-    const factoryObject = await client.getObject({
-      id: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
-      options: {
-        showContent: true
-      }
-    });
-
-    // 检查对象是否存在
-    if (!factoryObject.data) {
-      console.error('工厂对象不存在或无法访问');
+    if (!address) {
+      console.warn('检查游戏开发者权限失败: 地址为空');
       return false;
     }
 
-    // 获取对象内容以检查游戏开发者列表
-    const content = factoryObject.data.content;
-    if (!content || content.dataType !== 'moveObject') {
-      console.error('工厂对象不是Move对象或内容为空');
-      return false;
-    }
-
-    // 访问对象中的字段
-    const fields = (content as { fields: Record<string, any> }).fields;
-    
-    // 检查游戏开发者列表字段并直接进行判断
-    const gameDevs = fields.game_devs;
-    if (!gameDevs || !Array.isArray(gameDevs)) {
-      console.warn('对象中找不到游戏开发者列表字段或格式不正确');
-      return false;
-    }
-
-    // 规范化地址格式进行比较
+    console.log('准备检查是否为游戏开发者，用户地址:', address);
+    // 规范化地址为小写形式
     const normalizedAddress = address.toLowerCase();
-    const isGameDev = gameDevs.some((dev: string) => dev.toLowerCase() === normalizedAddress);
     
-    console.log('游戏开发者权限检查结果:', {
-      isGameDev,
-      totalDevs: gameDevs.length
-    });
+    // 从工厂对象获取游戏开发者列表
+    const gameDevs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+    console.log(`获取到 ${gameDevs.length} 个游戏开发者地址:`, gameDevs);
     
+    // 详细比较每个开发者地址
+    console.log(`==== 开始详细比较地址 ====`);
+    let isGameDev = false;
+    for (const devAddress of gameDevs) {
+      console.log(`比较用户地址与开发者地址:`);
+      console.log(`- 用户: ${normalizedAddress}`);
+      console.log(`- 开发者: ${devAddress}`);
+      
+      const matched = compareAddresses(normalizedAddress, devAddress);
+      console.log(`- 匹配结果: ${matched ? '✓ 匹配' : '✗ 不匹配'}`);
+      
+      if (matched) {
+        isGameDev = true;
+        break;
+      }
+    }
+    console.log(`==== 地址比较结束 ====`);
+    
+    console.log(`用户 ${normalizedAddress} ${isGameDev ? '是' : '不是'} 游戏开发者`);
     return isGameDev;
   } catch (error) {
-    console.error('检查游戏开发者权限失败:', {
-      error,
-      message: error instanceof Error ? error.message : String(error),
-      address
-    });
+    console.error('检查游戏开发者权限时出错:', error);
     return false;
   }
 }
@@ -191,7 +160,7 @@ export async function checkUserRole(client: SuiJsClient | DappKitSuiClient, addr
     
     // 然后检查是否是游戏开发者
     console.log('正在检查游戏开发者权限...');
-    const isGameDev = await checkIsGameDev(client, address);
+    const isGameDev = await checkIsGameDev(address);
     console.log('游戏开发者检查结果:', isGameDev);
     
     if (isGameDev) {

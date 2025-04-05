@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Card, Row, Col, Empty, Spin } from 'antd';
+import { Typography, Card, Row, Col, Empty, Spin, Button } from 'antd';
 import { Link } from 'react-router-dom';
+import { getAvailableAdSpaces } from '../utils/contract';
 import { AdSpace } from '../types';
 import './AdSpaces.scss';
 
@@ -10,47 +11,20 @@ const AdSpacesPage: React.FC = () => {
   const [adSpaces, setAdSpaces] = useState<AdSpace[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 模拟获取广告位数据
+  // 获取广告位数据
   useEffect(() => {
-    // 模拟API请求延迟
-    setTimeout(() => {
-      // 模拟数据
-      const mockData: AdSpace[] = [
-        {
-          id: '0x123',
-          name: '首页顶部广告位',
-          description: '网站首页顶部横幅广告位，高曝光量',
-          imageUrl: 'https://example.com/ad-space-1.jpg',
-          price: '100000000', // 0.1 SUI
-          duration: 30, // 30天
-          dimension: {
-            width: 1200,
-            height: 300,
-          },
-          owner: null,
-          available: true,
-          location: '首页顶部',
-        },
-        {
-          id: '0x456',
-          name: '侧边栏广告位',
-          description: '网站所有页面侧边栏广告位',
-          imageUrl: 'https://example.com/ad-space-2.jpg',
-          price: '50000000', // 0.05 SUI
-          duration: 30, // 30天
-          dimension: {
-            width: 300,
-            height: 600,
-          },
-          owner: null,
-          available: true,
-          location: '所有页面侧边栏',
-        },
-      ];
-      
-      setAdSpaces(mockData);
-      setLoading(false);
-    }, 1000);
+    const fetchAdSpaces = async () => {
+      try {
+        const spaces = await getAvailableAdSpaces();
+        setAdSpaces(spaces);
+      } catch (error) {
+        console.error('获取广告位失败:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAdSpaces();
   }, []);
   
   return (
@@ -63,7 +37,7 @@ const AdSpacesPage: React.FC = () => {
           <Spin size="large" />
           <p>加载广告位...</p>
         </div>
-      ) : adSpaces.length > 0 ? (
+      ) : adSpaces.length > 0 && adSpaces[0].id !== '0x0' ? (
         <Row gutter={[24, 24]} className="ad-spaces-grid">
           {adSpaces.map(adSpace => (
             <Col xs={24} sm={12} md={8} lg={6} key={adSpace.id}>
@@ -73,7 +47,12 @@ const AdSpacesPage: React.FC = () => {
                   className="ad-space-card"
                   cover={
                     <div className="card-cover">
-                      <img src={adSpace.imageUrl} alt={adSpace.name} />
+                      <div className="ad-space-image-placeholder">
+                        <div className="placeholder-content">
+                          <Text strong>{adSpace.name}</Text>
+                          <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
+                        </div>
+                      </div>
                     </div>
                   }
                 >
@@ -84,8 +63,16 @@ const AdSpacesPage: React.FC = () => {
                         <div className="ad-space-info">
                           <Text type="secondary">尺寸: {adSpace.dimension.width} x {adSpace.dimension.height}</Text>
                         </div>
+                        <div className="ad-space-info">
+                          <Text type="secondary">位置: {adSpace.location}</Text>
+                        </div>
                         <div className="ad-space-price">
                           <Text strong>价格: {Number(adSpace.price) / 1000000000} SUI / {adSpace.duration}天</Text>
+                          {adSpace.price_description && (
+                            <div className="price-description">
+                              <Text type="secondary">{adSpace.price_description}</Text>
+                            </div>
+                          )}
                         </div>
                       </>
                     }
@@ -96,7 +83,31 @@ const AdSpacesPage: React.FC = () => {
           ))}
         </Row>
       ) : (
-        <Empty description="暂无可用广告位" />
+        <div className="empty-state-container">
+          <Empty 
+            description={
+              <div className="empty-description">
+                <p>目前没有可用的广告位</p>
+                <p className="empty-subtitle">广告位由游戏开发者创建，请稍后再来查看</p>
+              </div>
+            }
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          >
+            <div className="empty-actions">
+              <Link to="/manage">
+                <Button type="primary">
+                  成为游戏开发者
+                </Button>
+              </Link>
+              <Button 
+                onClick={() => window.location.reload()}
+                style={{ marginLeft: '10px' }}
+              >
+                刷新页面
+              </Button>
+            </div>
+          </Empty>
+        </div>
       )}
     </div>
   );

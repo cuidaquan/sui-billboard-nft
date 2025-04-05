@@ -49,6 +49,9 @@ const AdSpaceCard: React.FC<AdSpaceCardProps> = ({ adSpace }) => {
         <div className="info-item">
           <DollarOutlined />
           <Text>价格: {Number(adSpace.price) / 1000000000} SUI / {adSpace.duration}天</Text>
+          {adSpace.price_description && (
+            <Text type="secondary" className="price-description">{adSpace.price_description}</Text>
+          )}
         </div>
         
         <div className="info-item">
