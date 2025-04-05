@@ -91,16 +91,10 @@ export const CONTRACT_CONFIG = {
   NFT_DISPLAY_CONFIG_ID: process.env.REACT_APP_NFT_DISPLAY_CONFIG_ID || '0x123...',
 
   /**
-   * 平台管理员凭证对象ID
-   * 可通过环境变量 REACT_APP_PLATFORM_CAP_ID 修改
+   * Clock对象ID
+   * 可通过环境变量 REACT_APP_CLOCK_ID 修改
    */
-  PLATFORM_CAP_ID: process.env.REACT_APP_PLATFORM_CAP_ID || '0x123...',
-
-  /**
-   * 游戏开发者凭证对象ID
-   * 可通过环境变量 REACT_APP_GAME_DEV_CAP_ID 修改
-   */
-  GAME_DEV_CAP_ID: process.env.REACT_APP_GAME_DEV_CAP_ID || '0x123...',
+  CLOCK_ID: process.env.REACT_APP_CLOCK_ID || '0x6',
 };
 
 /**

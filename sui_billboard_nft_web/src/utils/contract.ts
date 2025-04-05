@@ -52,7 +52,6 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
   
   // 实际从链上获取数据
   try {
-    const client = createSuiClient();
     console.log('从链上获取广告位数据');
     // 这里是真实代码，应该调用合约获取广告位
     // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
@@ -160,7 +159,6 @@ export async function getUserNFTs(owner: string): Promise<BillboardNFT[]> {
   
   // 实际从链上获取数据
   try {
-    const client = createSuiClient();
     console.log('从链上获取用户NFT数据');
     // 这里是真实代码，应该调用合约获取用户NFT
     // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
@@ -222,7 +220,6 @@ export async function getAdSpaceDetails(adSpaceId: string): Promise<AdSpace | nu
   
   // 实际从链上获取数据
   try {
-    const client = createSuiClient();
     console.log('从链上获取广告位详情数据');
     // 这里是真实代码，应该调用合约获取广告位详情
     // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
@@ -244,11 +241,12 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
     // 模拟获取数据的延迟
     await new Promise(resolve => setTimeout(resolve, 500));
     
+    // 根据ID返回不同的模拟数据
     if (nftId === '0x789') {
       return {
-        id: '0x789',
+        id: nftId,
         adSpaceId: '0x123',
-        owner: '0xuser',
+        owner: '0x456',
         brandName: '示例品牌',
         contentUrl: 'https://example.com/ad-content-1.jpg',
         projectUrl: 'https://example.com',
@@ -263,8 +261,7 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
   
   // 实际从链上获取数据
   try {
-    const client = createSuiClient();
-    console.log('从链上获取NFT详情数据');
+    console.log('从链上获取NFT详情');
     // 这里是真实代码，应该调用合约获取NFT详情
     // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
     
@@ -384,61 +381,69 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
   return txb;
 }
 
-// 创建广告位交易
+// 创建广告位的交易
 export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
   const txb = new TransactionBlock();
   
-  if (USE_MOCK_DATA) {
-    console.log('使用模拟交易数据');
-    // 不进行实际的交易构建
-    return txb;
-  }
-  
-  console.log('构建创建广告位交易');
-  
-  // 获取Clock对象
-  const clockObj = txb.moveCall({
-    target: '0x2::clock::Clock',
-  });
-  
-  // 调用合约的create_ad_space函数
+  // 调用合约的 create_ad_space 函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_ad_space`,
     arguments: [
-      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
-      txb.object(CONTRACT_CONFIG.GAME_DEV_CAP_ID), // game_dev_cap
-      txb.pure(params.gameId), // game_id
-      txb.pure(params.location), // location
-      txb.pure(params.size), // size
-      txb.pure(params.yearlyPrice), // yearly_price (previously daily_price)
-      clockObj, // clock
+      txb.object(params.factoryId), // Factory 对象
+      txb.pure(params.gameId),      // 游戏ID
+      txb.pure(params.location),    // 位置信息
+      txb.pure(params.size),        // 尺寸信息
+      txb.pure(params.price),       // 每日价格
+      txb.object(params.clockId),   // Clock 对象
     ],
   });
   
   return txb;
 }
 
-// 创建游戏开发者权限交易
-export function createGameDevCapTx(params: { recipient: string, gameDevCapId: string }): TransactionBlock {
+// 注册游戏开发者的交易
+export function registerGameDevTx(params: { factoryId: string, developer: string }): TransactionBlock {
   const txb = new TransactionBlock();
   
-  if (USE_MOCK_DATA) {
-    console.log('使用模拟交易数据');
-    return txb;
-  }
-  
-  console.log('构建创建游戏开发者权限交易');
-  
-  // 调用合约的create_game_dev_cap函数
+  // 调用合约的 register_game_dev 函数
   txb.moveCall({
-    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_game_dev_cap`,
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::register_game_dev`,
     arguments: [
-      txb.object(CONTRACT_CONFIG.PLATFORM_CAP_ID), // platform_cap
-      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
-      txb.object(params.gameDevCapId), // game_dev_cap
-      txb.pure(params.recipient), // recipient
+      txb.object(params.factoryId),  // Factory 对象
+      txb.pure(params.developer),    // 开发者地址
     ],
-    typeArguments: []
+  });
+  
+  return txb;
+}
+
+// 更新平台分成比例的交易
+export function updatePlatformRatioTx(params: { factoryId: string, ratio: number }): TransactionBlock {
+  const txb = new TransactionBlock();
+  
+  // 调用合约的 update_platform_ratio 函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_platform_ratio`,
+    arguments: [
+      txb.object(params.factoryId), // Factory 对象
+      txb.pure(params.ratio),       // 新的分成比例
+    ],
+  });
+  
+  return txb;
+}
+
+// 更新广告位价格的交易
+export function updateAdSpacePriceTx(params: { adSpaceId: string, price: string }): TransactionBlock {
+  const txb = new TransactionBlock();
+  
+  // 调用合约的 update_ad_space_price 函数
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_space_price`,
+    arguments: [
+      txb.object(params.adSpaceId), // AdSpace 对象
+      txb.pure(params.price),       // 新的价格
+    ],
   });
   
   return txb;
@@ -500,4 +505,20 @@ function createCalculateLeasePriceTx(adSpaceId: string, leaseDays: number): Tran
 // 格式化 SUI 金额
 export function formatSuiAmount(amount: string): string {
   return (Number(amount) / 1000000000).toString();
+}
+
+// 更新NFT内容
+export async function updateNFTContent(params: UpdateNFTContentParams): Promise<boolean> {
+  try {
+    console.log('更新NFT内容');
+    // 这里是真实代码，应该调用合约更新NFT内容
+    // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
+    
+    // TODO: 实现实际的合约调用逻辑
+    
+    return true; // 返回true作为示例
+  } catch (error) {
+    console.error('更新NFT内容失败:', error);
+    return false;
+  }
 }

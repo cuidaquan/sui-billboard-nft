@@ -23,6 +23,12 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
   const [totalPrice, setTotalPrice] = useState<string>("0");
   const [calculating, setCalculating] = useState<boolean>(false);
   
+  // 本地备用价格计算方法
+  const calculateLocalPrice = (days: number, price: string, duration: number): string => {
+    const pricePerDay = Number(price) / duration;
+    return ((pricePerDay * days) / 1000000000).toFixed(6);
+  };
+  
   // 从合约获取价格
   useEffect(() => {
     const fetchPrice = async () => {
@@ -33,7 +39,7 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
       } catch (error) {
         console.error('获取价格失败:', error);
         // 回退到本地计算方式
-        const localPrice = calculateLocalPrice(leaseDays);
+        const localPrice = calculateLocalPrice(leaseDays, adSpace.price, adSpace.duration);
         setTotalPrice(localPrice);
       } finally {
         setCalculating(false);
@@ -41,13 +47,7 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
     };
     
     fetchPrice();
-  }, [adSpace.id, leaseDays]);
-  
-  // 本地备用价格计算方法
-  const calculateLocalPrice = (days: number): string => {
-    const pricePerDay = Number(adSpace.price) / adSpace.duration;
-    return ((pricePerDay * days) / 1000000000).toFixed(6);
-  };
+  }, [adSpace.id, leaseDays, adSpace.price, adSpace.duration]);
   
   const handleSubmit = (values: any) => {
     const params: PurchaseAdSpaceParams = {

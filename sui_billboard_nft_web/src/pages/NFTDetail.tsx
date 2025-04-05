@@ -112,7 +112,7 @@ const NFTDetailPage: React.FC = () => {
       };
       
       // 这里应该调用合约续租NFT
-      const txb = createRenewLeaseTx(params);
+      await createRenewLeaseTx(params);
       
       // 模拟成功 (实际项目中应该发送交易)
       await new Promise(resolve => setTimeout(resolve, 1000));

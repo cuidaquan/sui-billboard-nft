@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Divider, Card, List, Empty } from 'antd';
+import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty } from 'antd';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { CreateAdSpaceParams, UserRole } from '../types';
-import { createAdSpaceTx, createSuiClient, createGameDevCapTx } from '../utils/contract';
+import { CreateAdSpaceParams, UserRole, RegisterGameDevParams } from '../types';
+import { createAdSpaceTx, registerGameDevTx } from '../utils/contract';
 import { CONTRACT_CONFIG } from '../config/config';
 import './Manage.scss';
 
@@ -58,14 +57,16 @@ const ManagePage: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // 将年度价格转换为整数（以MIST为单位，1 SUI = 10^9 MIST）
-      const yearlyPriceInMist = BigInt(Math.floor(Number(values.yearlyPrice) * 1000000000));
+      // 将价格转换为整数（以MIST为单位，1 SUI = 10^9 MIST）
+      const priceInMist = BigInt(Math.floor(Number(values.price) * 1000000000));
       
       const params: CreateAdSpaceParams = {
+        factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
         gameId: values.gameId,
         location: values.location,
         size: values.size,
-        yearlyPrice: yearlyPriceInMist.toString()
+        price: priceInMist.toString(),
+        clockId: CONTRACT_CONFIG.CLOCK_ID
       };
       
       // 创建交易
@@ -100,17 +101,14 @@ const ManagePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      if (!CONTRACT_CONFIG.GAME_DEV_CAP_ID) {
-        setError('游戏开发者权限ID未配置');
-        return;
-      }
 
       // 创建交易
-      const txb = createGameDevCapTx({
-        recipient: values.devAddress,
-        gameDevCapId: CONTRACT_CONFIG.GAME_DEV_CAP_ID
-      });
+      const params: RegisterGameDevParams = {
+        factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+        developer: values.devAddress
+      };
+
+      const txb = registerGameDevTx(params);
       
       // 执行交易
       try {
@@ -305,15 +303,15 @@ const ManagePage: React.FC = () => {
               </Form.Item>
               
               <Form.Item
-                name="yearlyPrice"
-                label="年租价格 (SUI)"
+                name="price"
+                label="价格 (SUI)"
                 rules={[
-                  { required: true, message: '请输入年租价格' },
+                  { required: true, message: '请输入价格' },
                   { type: 'number', min: 0.000001, message: '价格必须大于0' }
                 ]}
               >
                 <InputNumber
-                  placeholder="请输入年租价格"
+                  placeholder="请输入价格"
                   step={0.1}
                   precision={6}
                   style={{ width: '100%' }}

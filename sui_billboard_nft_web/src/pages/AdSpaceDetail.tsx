@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Typography, Button, Spin, Card, Alert } from 'antd';
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { AdSpace } from '../types';
-import { getAdSpaceDetails, createSuiClient } from '../utils/contract';
+import { getAdSpaceDetails } from '../utils/contract';
 import { formatSuiAmount } from '../utils/format';
 import './AdSpaceDetail.scss';
 
@@ -11,7 +11,6 @@ const { Title, Paragraph } = Typography;
 
 const AdSpaceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const suiClient = createSuiClient();
   
   const [adSpace, setAdSpace] = useState<AdSpace | null>(null);
   const [loading, setLoading] = useState<boolean>(true);

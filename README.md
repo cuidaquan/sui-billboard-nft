@@ -42,8 +42,9 @@
 
 ### 核心模块
 1. **权限管理模块**
-   - PlatformCap：平台管理能力
-   - GameDevCap：游戏开发者能力
+   - 平台管理员权限
+   - 游戏开发者权限
+   - 地址验证机制
 
 2. **广告位模块**
    - AdSpace：广告位对象
@@ -55,21 +56,13 @@
 
 ### 核心数据结构
 
-#### 平台管理能力
+#### Factory 工厂合约
 ```move
-struct PlatformCap has key, store {
+struct Factory has key {
     id: UID,
-    admin: address,
-    capabilities: vector<String>
-}
-```
-
-#### 游戏开发者能力
-```move
-struct GameDevCap has key, store {
-    id: UID,
-    game_ids: vector<String>,
-    developer: address,
+    admin: address,           // 平台管理员地址
+    game_devs: Table<address, bool>, // 游戏开发者地址映射
+    platform_ratio: u8,       // 平台分成比例
 }
 ```
 
@@ -121,27 +114,26 @@ NFT支持标准化的Display功能，包含以下字段：
 fun init(_: BILLBOARD_NFT, ctx: &mut TxContext)
 ```
 - 初始化工厂合约
-- 创建平台管理能力
+- 设置平台管理员
 - 初始化NFT Display配置
 - 设置系统参数
 
-### 2. 创建游戏开发者
+### 2. 注册游戏开发者
 ```move
-public entry fun create_game_dev_cap(
-    _platform_cap: &PlatformCap,
-    game_ids: vector<String>,
+public entry fun register_game_dev(
+    factory: &mut Factory,
     developer: address,
     ctx: &mut TxContext
 )
 ```
-- 由平台管理员创建
-- 分配游戏ID权限
-- 转移给开发者
+- 验证调用者是平台管理员
+- 注册游戏开发者地址
+- 授予开发者权限
 
 ### 3. 创建广告位
 ```move
 public entry fun create_ad_space(
-    game_dev_cap: &GameDevCap,
+    factory: &mut Factory,
     game_id: String,
     location: String,
     size: String,
@@ -254,10 +246,10 @@ sui client publish --gas-budget 100000000
 ```
 
 ## 安全性考虑
-1. 权限控制
-   - 平台管理员权限
-   - 游戏开发者权限
-   - NFT所有者权限
+1. **基于地址的权限验证**
+   - 管理员权限：通过验证调用者地址与 Factory 中的 admin 地址匹配
+   - 游戏开发者权限：通过验证调用者地址是否在 game_devs 表中注册
+   - 广告位所有者权限：通过验证调用者地址与 NFT 所有者地址匹配
 
 2. 资金安全
    - 自动退还多余支付
@@ -266,6 +258,22 @@ sui client publish --gas-budget 100000000
 3. 租约管理
    - 租期验证
    - 到期自动失效
+
+## 权限控制系统
+1. **基于地址的权限验证**
+   - 管理员权限：通过验证调用者地址与 Factory 中的 admin 地址匹配
+   - 游戏开发者权限：通过验证调用者地址是否在 game_devs 表中注册
+   - 广告位所有者权限：通过验证调用者地址与 NFT 所有者地址匹配
+
+2. **错误处理**
+   - ENotAdmin：非管理员操作错误
+   - ENotGameDev：非游戏开发者操作错误
+   - ENotAdSpaceCreator：非广告位创建者操作错误
+
+3. **权限检查流程**
+   - 管理员操作：直接比对调用者地址
+   - 开发者操作：查表验证开发者权限
+   - NFT 操作：验证所有者权限
 
 ## 后续开发计划
 1. 添加更多广告类型支持

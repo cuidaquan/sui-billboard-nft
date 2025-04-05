@@ -83,8 +83,25 @@ export interface User {
 }
 
 export interface CreateAdSpaceParams {
-  gameId: string;
-  location: string;
-  size: string;
-  yearlyPrice: string;
+  factoryId: string;    // Factory 对象 ID
+  gameId: string;       // 游戏 ID
+  location: string;     // 位置信息
+  size: string;         // 尺寸信息
+  price: string;        // 每日价格
+  clockId: string;      // Clock 对象 ID
+}
+
+export interface RegisterGameDevParams {
+  factoryId: string;    // Factory 对象 ID
+  developer: string;    // 开发者地址
+}
+
+export interface UpdatePlatformRatioParams {
+  factoryId: string;    // Factory 对象 ID
+  ratio: number;        // 新的分成比例 (0-100)
+}
+
+export interface UpdateAdSpacePriceParams {
+  adSpaceId: string;    // 广告位 ID
+  price: string;        // 新的价格
 }

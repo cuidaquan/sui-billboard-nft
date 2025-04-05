@@ -1,15 +1,12 @@
 import React from 'react';
-import { Typography, Card, Button, Row, Col, Space, message, Alert } from 'antd';
+import { Typography, Card, Button, Row, Col, Space } from 'antd';
 import { Link } from 'react-router-dom';
-import { ShoppingOutlined, AppstoreOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { ShoppingOutlined, UserOutlined } from '@ant-design/icons';
 import './Home.scss';
 
 const { Title, Paragraph } = Typography;
 
 const HomePage: React.FC = () => {
-  const currentAccount = useCurrentAccount();
-  
   return (
     <div className="home-page">
       <div className="hero-section">

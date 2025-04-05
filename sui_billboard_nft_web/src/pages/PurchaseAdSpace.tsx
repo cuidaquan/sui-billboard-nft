@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Spin, Alert } from 'antd';
-import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
-import { SuiClient } from '@mysten/sui.js/client';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 import { AdSpace, PurchaseAdSpaceParams } from '../types';
 import AdSpaceForm from '../components/adSpace/AdSpaceForm';
 import { getAdSpaceDetails, createPurchaseAdSpaceTx } from '../utils/contract';
@@ -14,7 +12,6 @@ const { Title, Paragraph } = Typography;
 const PurchaseAdSpacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const suiClient = useSuiClient();
   const account = useCurrentAccount();
   
   const [adSpace, setAdSpace] = useState<AdSpace | null>(null);
@@ -54,28 +51,16 @@ const PurchaseAdSpacePage: React.FC = () => {
       setSubmitting(true);
       setError(null);
       
-      // 创建交易
-      const txb = createPurchaseAdSpaceTx(values);
+      // 创建并执行交易
+      await createPurchaseAdSpaceTx(values);
       
-      // 执行交易 - 这里需要使用dapp-kit的API执行
-      try {
-        // 此处应当使用dapp-kit的方法发送交易
-        // 根据实际API调整
-        // const response = await signAndExecuteTransactionBlock({
-        //   transactionBlock: txb,
-        // });
-        
-        // 模拟成功，实际项目中应当检查交易结果
-        const response = { status: "success" };
-        
-        // 交易成功
-        if (response) {
-          // 导航到我的NFT页面
-          navigate('/my-nfts');
-        }
-      } catch (txError) {
-        console.error("交易执行失败:", txError);
-        setError("交易执行失败，请稍后再试");
+      // 模拟成功，实际项目中应当检查交易结果
+      const response = { status: "success" };
+      
+      // 交易成功
+      if (response) {
+        // 导航到我的NFT页面
+        navigate('/my-nfts');
       }
     } catch (err) {
       console.error('购买广告位失败:', err);
