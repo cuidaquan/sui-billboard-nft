@@ -5,6 +5,10 @@
 
   .section-title {
     margin-bottom: 24px;
+    
+    h2 {
+      margin-bottom: 8px;
+    }
   }
 
   .loading-container {
@@ -17,6 +21,20 @@
     p {
       margin-top: 16px;
       color: #666;
+    }
+  }
+
+  .error-container {
+    margin: 40px auto;
+    
+    .error-actions {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .ant-alert {
+      margin-bottom: 20px;
     }
   }
 } 

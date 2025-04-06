@@ -181,7 +181,7 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
             available: false,
             location: '无',
             isExample: true, // 标记这是示例数据
-            price_description: '价格为365天的租赁费用'
+            price_description: '价格为每日租赁价格'
           }];
         }
         
@@ -192,7 +192,7 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
           description: adSpace.description || `位于 ${adSpace.location || '未知位置'} 的广告位`,
           imageUrl: adSpace.imageUrl || `https://via.placeholder.com/${adSpace.dimension.width}x${adSpace.dimension.height}?text=${encodeURIComponent(adSpace.name || 'AdSpace')}`,
           duration: 365, // 确保都是365天
-          price_description: '价格为365天的租赁费用'
+          price_description: '价格为每日租赁价格'
         }));
       }
     }
@@ -255,13 +255,187 @@ export async function getUserNFTs(owner: string): Promise<BillboardNFT[]> {
   
   // 实际从链上获取数据
   try {
-    console.log('从链上获取用户NFT数据');
-    // 这里是真实代码，应该调用合约获取用户NFT
-    // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
+    console.log('从链上获取用户NFT数据，所有者地址:', owner);
     
-    // TODO: 实现实际的合约调用逻辑
+    if (!owner || !owner.startsWith('0x')) {
+      console.error('所有者地址无效:', owner);
+      return [];
+    }
     
-    return []; // 返回空数组作为示例
+    // 生成一个唯一的请求ID，用于日志跟踪
+    const requestId = new Date().getTime().toString();
+    console.log(`[${requestId}] 开始获取用户NFT数据`);
+    
+    const client = createSuiClient();
+    
+    // 从Factory对象中查询相关NFT信息
+    const factoryObject = await client.getObject({
+      id: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+      options: {
+        showContent: true,
+        showDisplay: true,
+        showType: true,
+      }
+    });
+    
+    console.log(`[${requestId}] 获取到Factory对象:`, factoryObject.data?.objectId);
+    
+    // 直接查询用户拥有的NFT对象
+    const ownedObjects = await client.getOwnedObjects({
+      owner,
+      options: {
+        showContent: true,
+        showDisplay: true,
+        showType: true,
+      },
+      limit: 50  // 限制返回数量
+    });
+    
+    console.log(`[${requestId}] 获取到用户拥有的对象:`, ownedObjects.data?.length || 0);
+    
+    // 处理结果
+    if (!ownedObjects.data || ownedObjects.data.length === 0) {
+      console.log(`[${requestId}] 用户没有拥有任何对象`);
+      return [];
+    }
+    
+    // 筛选出广告位NFT类型的对象
+    const nftObjects = ownedObjects.data.filter(obj => {
+      if (!obj.data?.content) return false;
+      
+      const typeStr = obj.data.type || '';
+      const contentType = obj.data.content.dataType;
+      
+      // 检查对象类型是否是广告位NFT
+      // 更新类型检查以匹配 AdBoardNFT 类型
+      const isNftType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::nft::AdBoardNFT`) || 
+                      typeStr.includes(`nft::AdBoardNFT`);
+      
+      console.log(`[${requestId}] 对象类型检查:`, obj.data.objectId, 'type:', typeStr, 'isNftType:', isNftType, 'contentType:', contentType);
+      
+      return isNftType && contentType === 'moveObject';
+    });
+    
+    console.log(`[${requestId}] 筛选出的NFT对象数量:`, nftObjects.length);
+    
+    // 转换为前端使用的NFT数据结构
+    const nfts: BillboardNFT[] = [];
+    
+    for (const nftObj of nftObjects) {
+      try {
+        if (!nftObj.data?.content || nftObj.data.content.dataType !== 'moveObject') {
+          console.warn(`[${requestId}] NFT对象不是moveObject类型:`, nftObj.data?.objectId);
+          continue;
+        }
+        
+        // 类型断言为含有fields的对象
+        const moveObject = nftObj.data.content as { dataType: 'moveObject', fields: Record<string, any> };
+        if (!moveObject.fields) {
+          console.warn(`[${requestId}] NFT对象没有fields字段:`, nftObj.data?.objectId);
+          continue;
+        }
+        
+        const fields = moveObject.fields;
+        console.log(`[${requestId}] NFT对象字段:`, nftObj.data.objectId, Object.keys(fields));
+        
+        // 记录完整字段内容以便调试
+        console.log(`[${requestId}] NFT字段详细内容:`, JSON.stringify(fields, null, 2));
+        
+        // 提取广告位ID - 适配不同字段名称
+        let adSpaceId = '';
+        if (fields.ad_space_id) {
+          adSpaceId = typeof fields.ad_space_id === 'string' ? fields.ad_space_id : 
+                    (fields.ad_space_id.id ? fields.ad_space_id.id : '');
+        } else if (fields.ad_space) {
+          // 适配可能的替代字段名称
+          adSpaceId = typeof fields.ad_space === 'string' ? fields.ad_space : 
+                    (fields.ad_space.id ? fields.ad_space.id : 
+                     (typeof fields.ad_space === 'object' ? JSON.stringify(fields.ad_space) : ''));
+        }
+        
+        console.log(`[${requestId}] 提取的广告位ID:`, adSpaceId);
+        
+        // 提取到期时间 - 适配不同字段名称
+        let expiryTimestamp = 0;
+        if (fields.expiry_timestamp) {
+          expiryTimestamp = parseInt(fields.expiry_timestamp);
+        } else if (fields.expiry) {
+          expiryTimestamp = parseInt(fields.expiry);
+        } else if (fields.expire_timestamp) {
+          expiryTimestamp = parseInt(fields.expire_timestamp);
+        } else if (fields.lease_end) {
+          // 合约中使用的lease_end字段
+          expiryTimestamp = parseInt(fields.lease_end);
+        }
+        
+        console.log(`[${requestId}] 提取的到期时间:`, expiryTimestamp);
+        
+        // 提取创建时间 - 适配不同字段名称
+        let createdTimestamp = 0;
+        if (fields.created_timestamp) {
+          createdTimestamp = parseInt(fields.created_timestamp);
+        } else if (fields.created) {
+          createdTimestamp = parseInt(fields.created);
+        } else if (fields.create_timestamp) {
+          createdTimestamp = parseInt(fields.create_timestamp);
+        } else if (fields.lease_start) {
+          // 合约中使用的lease_start字段
+          createdTimestamp = parseInt(fields.lease_start);
+        }
+        
+        console.log(`[${requestId}] 提取的创建时间:`, createdTimestamp);
+        
+        // 提取其他字段 - 适配不同字段名称
+        const brandName = fields.brand_name || fields.brand || '';
+        const contentUrl = fields.content_url || fields.content || fields.url || '';
+        const projectUrl = fields.project_url || fields.project || fields.website || '';
+        
+        console.log(`[${requestId}] 提取的品牌名称:`, brandName);
+        console.log(`[${requestId}] 提取的内容URL:`, contentUrl);
+        console.log(`[${requestId}] 提取的项目URL:`, projectUrl);
+        
+        // 如果无法获取创建时间，使用当前时间减去30天作为默认值
+        if (createdTimestamp === 0) {
+          createdTimestamp = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+          console.log(`[${requestId}] 使用默认创建时间:`, createdTimestamp);
+        }
+        
+        // 如果无法获取到期时间，使用当前时间加上30天作为默认值
+        if (expiryTimestamp === 0) {
+          expiryTimestamp = Math.floor((Date.now() + 30 * 24 * 60 * 60 * 1000) / 1000);
+          console.log(`[${requestId}] 使用默认到期时间:`, expiryTimestamp);
+        }
+        
+        // 计算租赁开始和结束日期
+        const now = Date.now();
+        const leaseStart = new Date(createdTimestamp * 1000).toISOString();
+        const leaseEnd = new Date(expiryTimestamp * 1000).toISOString();
+        
+        // 判断NFT是否有效
+        const isActive = expiryTimestamp * 1000 > now;
+        
+        // 构建NFT对象
+        const nft: BillboardNFT = {
+          id: nftObj.data.objectId,
+          adSpaceId: adSpaceId,
+          owner: owner,
+          brandName: brandName,
+          contentUrl: contentUrl,
+          projectUrl: projectUrl,
+          leaseStart: leaseStart,
+          leaseEnd: leaseEnd,
+          isActive: isActive
+        };
+        
+        console.log(`[${requestId}] 成功解析NFT:`, nftObj.data.objectId, 'adSpaceId:', adSpaceId);
+        nfts.push(nft);
+      } catch (err) {
+        console.error(`[${requestId}] 解析NFT时出错:`, nftObj.data?.objectId, err);
+      }
+    }
+    
+    console.log(`[${requestId}] 成功获取用户NFT数量:`, nfts.length);
+    return nfts;
   } catch (error) {
     console.error('获取用户NFT失败:', error);
     return [];
@@ -316,13 +490,10 @@ export async function getAdSpaceDetails(adSpaceId: string): Promise<AdSpace | nu
   
   // 实际从链上获取数据
   try {
-    console.log('从链上获取广告位详情数据');
-    // 这里是真实代码，应该调用合约获取广告位详情
-    // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
+    console.log('从链上获取广告位详情数据, ID:', adSpaceId);
     
-    // TODO: 实现实际的合约调用逻辑
-    
-    return null; // 返回null作为示例
+    // 调用getAdSpaceById函数获取广告位详情
+    return await getAdSpaceById(adSpaceId);
   } catch (error) {
     console.error('获取广告位详情失败:', error);
     return null;
@@ -383,9 +554,7 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   console.log('构建购买广告位交易');
   
   // 获取Clock对象
-  const clockObj = txb.moveCall({
-    target: '0x2::clock::Clock',
-  });
+  const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 创建SUI支付对象
   const payment = txb.splitCoins(txb.gas, [txb.pure(params.price)]);
@@ -421,9 +590,7 @@ export function createUpdateAdContentTx(params: UpdateNFTContentParams): Transac
   console.log('构建更新广告内容交易');
   
   // 获取Clock对象
-  const clockObj = txb.moveCall({
-    target: '0x2::clock::Clock',
-  });
+  const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 调用合约的update_ad_content函数
   txb.moveCall({
@@ -451,9 +618,7 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
   console.log('构建续租交易');
   
   // 获取Clock对象
-  const clockObj = txb.moveCall({
-    target: '0x2::clock::Clock',
-  });
+  const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 获取广告位ID
   const adSpaceId = params.adSpaceId;
@@ -614,53 +779,104 @@ export async function calculateLeasePrice(adSpaceId: string, leaseDays: number):
     return mockPrice.toString();
   }
   
-  console.log('从链上获取广告位租赁价格');
+  console.log('计算广告位租赁价格，广告位ID:', adSpaceId, '租赁天数:', leaseDays);
   
-  try {
-    const client = createSuiClient();
-    const result = await client.devInspectTransactionBlock({
-      transactionBlock: createCalculateLeasePriceTx(adSpaceId, leaseDays),
-      sender: '0x0000000000000000000000000000000000000000000000000000000000000000'
-    });
+  // 验证租赁天数在有效范围内
+  if (leaseDays <= 0 || leaseDays > 365) {
+    throw new Error('租赁天数必须在1-365天之间');
+  }
+  
+  // 获取广告位信息
+  const adSpace = await getAdSpaceById(adSpaceId);
+  
+  if (!adSpace || !adSpace.price) {
+    throw new Error('无法获取广告位信息或价格为空');
+  }
+  
+  console.log('获取到广告位信息，基础价格:', adSpace.price);
+  
+  // 确保价格是字符串类型，现在price表示1天的租赁价格
+  const dailyPrice = typeof adSpace.price === 'string' ? 
+    BigInt(adSpace.price) : BigInt(String(adSpace.price));
+  
+  console.log('日租赁价格(BigInt):', dailyPrice.toString());
+  
+  // 特殊情况处理
+  if (leaseDays === 1) {
+    return dailyPrice.toString();
+  }
+  
+  // 按照合约中的几何级数计算
+  const ratio = BigInt(999000); // 比例因子 0.999
+  const base = BigInt(1000000); // 基数表示 1.0
+  const minDailyFactor = BigInt(100000); // 最低日因子 0.1
+  
+  // 计算租赁总价
+  let totalPrice = dailyPrice; // 第一天的价格
+  let factor = base; // 初始因子为1.0
+  
+  // 从第二天开始计算
+  for (let i = 1; i < leaseDays; i++) {
+    // 计算当前因子
+    factor = (factor * ratio) / base;
     
-    // 从检查结果中提取返回值
-    if (result.effects.status.status === 'success') {
-      // 解析返回值 (u64 类型的价格)
-      const returnValues = result.results?.[0]?.returnValues;
-      if (returnValues && returnValues.length > 0) {
-        const priceValue = returnValues[0][0];
-        return priceValue.toString(); // 将返回值转换为字符串
-      }
+    // 如果因子低于最低值(1/10)，则使用最低值
+    if (factor < minDailyFactor) {
+      // 增加剩余天数的最低价格
+      totalPrice = totalPrice + (dailyPrice * minDailyFactor * BigInt(leaseDays - i)) / base;
+      break;
     }
     
-    // 如果计算失败，返回一个默认值或抛出错误
-    throw new Error('无法计算租赁价格');
-  } catch (error) {
-    console.error('获取广告位租赁价格失败:', error);
-    // 出错时返回一个默认值
+    // 否则增加当前因子对应的价格
+    totalPrice = totalPrice + (dailyPrice * factor) / base;
+  }
+  
+  console.log('计算得到的租赁总价:', totalPrice.toString());
+  return totalPrice.toString();
+}
+
+// 格式化SUI金额
+export function formatSuiAmount(amount: string): string {
+  console.log('格式化SUI金额:', amount);
+  
+  if (!amount) {
+    console.warn('SUI金额为空');
     return '0';
   }
-}
-
-// 创建计算租赁价格的只读交易
-function createCalculateLeasePriceTx(adSpaceId: string, leaseDays: number): TransactionBlock {
-  const txb = new TransactionBlock();
   
-  // 调用合约的计算价格函数
-  txb.moveCall({
-    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::calculate_lease_price`,
-    arguments: [
-      txb.object(adSpaceId), // ad_space
-      txb.pure(leaseDays), // lease_days
-    ],
-  });
-  
-  return txb;
-}
-
-// 格式化 SUI 金额
-export function formatSuiAmount(amount: string): string {
-  return (Number(amount) / 1000000000).toString();
+  try {
+    // 将字符串转换为数字
+    const amountInMist = BigInt(amount);
+    console.log('转换为BigInt后的金额:', amountInMist.toString());
+    
+    // 转换为SUI单位 (1 SUI = 10^9 MIST)
+    const amountInSui = Number(amountInMist) / 1000000000;
+    console.log('转换为SUI单位后的金额:', amountInSui);
+    
+    // 检查结果是否为NaN
+    if (isNaN(amountInSui)) {
+      console.warn('SUI金额格式化后为NaN');
+      return '0';
+    }
+    
+    // 格式化为最多9位小数
+    return amountInSui.toFixed(9);
+  } catch (error) {
+    console.error('格式化SUI金额时出错:', error);
+    
+    // 尝试直接将字符串解析为数字
+    try {
+      const numAmount = Number(amount) / 1000000000;
+      if (!isNaN(numAmount)) {
+        console.log('使用Number直接解析成功:', numAmount);
+        return numAmount.toFixed(9);
+      }
+    } catch (e) {
+      console.error('尝试直接解析也失败:', e);
+    }
+    
+    return '0';
+  }
 }
 
 // 更新NFT内容
@@ -785,8 +1001,43 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
       const fields = factoryObject.data.content.fields as any;
       console.log(`[${requestId}] Factory对象字段列表:`, Object.keys(fields || {}));
       
-      // 在Factory处理过程中增加新的日志和格式处理
-      console.log(`[${requestId}] Factory原始字段:`, fields);
+      // 添加更详细的调试信息，打印整个对象结构
+      try {
+        console.log(`[${requestId}] Factory原始字段:`, fields);
+
+        // 尝试检查raw数据结构
+        if (factoryObject.data?.bcs) {
+          console.log(`[${requestId}] Factory BCS数据存在`);
+        }
+        
+        // 检查Fields键值
+        if (fields) {
+          console.log(`[${requestId}] Factory Fields键列表:`, Object.keys(fields));
+          
+          // 针对ad_spaces特别检查
+          if (fields.ad_spaces) {
+            const adSpacesType = typeof fields.ad_spaces;
+            console.log(`[${requestId}] ad_spaces类型: ${adSpacesType}`);
+            
+            if (adSpacesType === 'object') {
+              if (Array.isArray(fields.ad_spaces)) {
+                console.log(`[${requestId}] ad_spaces是数组，长度:`, fields.ad_spaces.length);
+                
+                // 打印数组中第一个元素的结构
+                if (fields.ad_spaces.length > 0) {
+                  console.log(`[${requestId}] 第一个ad_space结构:`, fields.ad_spaces[0]);
+                  console.log(`[${requestId}] 第一个ad_space键列表:`, Object.keys(fields.ad_spaces[0]));
+                }
+              } else {
+                console.log(`[${requestId}] ad_spaces是非数组对象:`, fields.ad_spaces);
+                console.log(`[${requestId}] ad_spaces键列表:`, Object.keys(fields.ad_spaces));
+              }
+            }
+          }
+        }
+      } catch (debugError) {
+        console.error(`[${requestId}] 调试信息生成出错:`, debugError);
+      }
 
       // 检查并打印ad_spaces的详细内容
       if (fields && fields.ad_spaces) {
@@ -807,13 +1058,25 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
           
           // 检查创建者字段的存在方式
           let creator = null;
+          let adSpaceId = null;
+          
           if (entry.creator) {
             creator = entry.creator;
           } else if (entry.fields && entry.fields.creator) {
             creator = entry.fields.creator;
           }
           
+          // 检查广告位ID的存在方式
+          if (entry.ad_space_id) {
+            adSpaceId = typeof entry.ad_space_id === 'string' ? entry.ad_space_id : 
+              (entry.ad_space_id.id ? entry.ad_space_id.id : JSON.stringify(entry.ad_space_id));
+          } else if (entry.fields && entry.fields.ad_space_id) {
+            adSpaceId = typeof entry.fields.ad_space_id === 'string' ? entry.fields.ad_space_id : 
+              (entry.fields.ad_space_id.id ? entry.fields.ad_space_id.id : JSON.stringify(entry.fields.ad_space_id));
+          }
+          
           console.log(`[${requestId}] 条目[${index}]创建者:`, creator);
+          console.log(`[${requestId}] 条目[${index}]广告位ID:`, adSpaceId);
         });
         
         // 详细记录每个条目的创建者地址，便于调试
@@ -905,25 +1168,70 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
             owner: null,
             available: true,
             location: '示例位置',
-            isExample: true // 标记这是示例数据
+            isExample: true, // 标记这是示例数据
+            price_description: '价格为每日租赁价格'
           }];
         }
         
         // 获取开发者创建的广告位详细信息
         const devAdSpaces: AdSpace[] = [];
         
-        for (const entry of devAdSpaceEntries as any[]) {
+        for (const entry of devAdSpaceEntries) {
           try {
-            // 确保entry包含ad_space_id字段
-            if (!entry.ad_space_id || !entry.ad_space_id.id) {
-              console.error(`[${requestId}] 广告位条目缺少ad_space_id字段:`, entry);
+            console.log(`[${requestId}] 开始处理广告位条目:`, entry);
+            
+            // 确保能够访问到广告位ID
+            if (!entry.fields && !entry.ad_space_id) {
+              console.error(`[${requestId}] 广告位条目缺少ad_space_id字段和fields字段:`, JSON.stringify(entry));
               continue;
             }
             
-            const adSpaceId = entry.ad_space_id.id;
-            console.log(`[${requestId}] 获取广告位详细信息, ID:`, adSpaceId);
+            // 提取广告位ID
+            let adSpaceId = null;
             
-            // 尝试直接通过ID获取广告位信息
+            // 检查不同位置的ad_space_id
+            if (entry.fields && entry.fields.ad_space_id) {
+              if (typeof entry.fields.ad_space_id === 'string') {
+                adSpaceId = entry.fields.ad_space_id;
+                console.log(`[${requestId}] 从fields.ad_space_id字符串获取到ID:`, adSpaceId);
+              } else if (entry.fields.ad_space_id.id) {
+                adSpaceId = entry.fields.ad_space_id.id;
+                console.log(`[${requestId}] 从fields.ad_space_id.id获取到ID:`, adSpaceId);
+              } else {
+                // 序列化复杂对象并提取ID
+                const objStr = JSON.stringify(entry.fields.ad_space_id);
+                console.log(`[${requestId}] 复杂的fields.ad_space_id:`, objStr);
+                
+                // 尝试匹配任何0x开头的十六进制ID
+                const idMatch = objStr.match(/"(0x[a-fA-F0-9]+)"/);
+                if (idMatch && idMatch[1]) {
+                  adSpaceId = idMatch[1];
+                  console.log(`[${requestId}] 从复杂对象中提取到ID:`, adSpaceId);
+                }
+              }
+            } else if (entry.ad_space_id) {
+              // 直接从entry获取
+              if (typeof entry.ad_space_id === 'string') {
+                adSpaceId = entry.ad_space_id;
+              } else if (entry.ad_space_id.id) {
+                adSpaceId = entry.ad_space_id.id;
+              } else {
+                const objStr = JSON.stringify(entry.ad_space_id);
+                const idMatch = objStr.match(/"(0x[a-fA-F0-9]+)"/);
+                if (idMatch && idMatch[1]) {
+                  adSpaceId = idMatch[1];
+                }
+              }
+            }
+            
+            if (!adSpaceId) {
+              console.error(`[${requestId}] 无法提取广告位ID:`, JSON.stringify(entry));
+              continue;
+            }
+            
+            console.log(`[${requestId}] 成功提取广告位ID:`, adSpaceId);
+            
+            // 获取广告位详情
             const adSpace = await getAdSpaceById(adSpaceId);
             
             if (adSpace) {
@@ -1011,7 +1319,8 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
             owner: null,
             available: false,
             location: '无',
-            isExample: true
+            isExample: true,
+            price_description: '价格为每日租赁价格'
           }];
         }
         
@@ -1019,36 +1328,11 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
       }
     }
     
-    console.warn(`[${requestId}] 未找到广告位列表，Factory对象结构:`, factoryObject);
-    return [{
-      id: '0x0',
-      name: '无法从合约获取数据',
-      description: '无法从Factory合约获取广告位数据，请稍后重试。',
-      imageUrl: 'https://via.placeholder.com/300x250?text=数据获取失败',
-      price: '0',
-      duration: 30,
-      dimension: { width: 300, height: 250 },
-      owner: null,
-      available: false,
-      location: '无',
-      isExample: true
-    }];
+    console.warn(`[${requestId}] 未能找到游戏开发者列表，工厂对象结构:`, factoryObject);
+    return [];
   } catch (error) {
-    // 这里的错误日志不使用requestId，因为它可能发生在requestId创建之前
-    console.error('获取Factory广告位列表失败:', error);
-    return [{
-      id: '0x0',
-      name: '数据加载错误',
-      description: '获取广告位数据时发生错误，请稍后重试。',
-      imageUrl: 'https://via.placeholder.com/300x250?text=加载错误',
-      price: '0',
-      duration: 30,
-      dimension: { width: 300, height: 250 },
-      owner: null,
-      available: false,
-      location: '无',
-      isExample: true
-    }];
+    console.error('获取游戏开发者列表失败:', error);
+    return [];
   }
 }
 
@@ -1078,7 +1362,16 @@ export async function getAdSpaceById(adSpaceId: string): Promise<AdSpace | null>
     
     console.log('获取到广告位对象:', adSpaceObject);
     
-    if (adSpaceObject.data?.content?.dataType === 'moveObject') {
+    // 检查对象响应的类型和存在性
+    if (!adSpaceObject || !adSpaceObject.data || !adSpaceObject.data.content) {
+      console.error('广告位对象响应无效或为空:', adSpaceObject);
+      return null;
+    }
+    
+    const contentType = adSpaceObject.data.content.dataType;
+    console.log('广告位内容类型:', contentType);
+    
+    if (contentType === 'moveObject') {
       const adSpaceFields = adSpaceObject.data.content.fields as any;
       console.log('广告位对象字段:', Object.keys(adSpaceFields || {}));
       console.log('广告位详细内容:', adSpaceFields);
@@ -1093,23 +1386,32 @@ export async function getAdSpaceById(adSpaceId: string): Promise<AdSpace | null>
         }
       }
       
+      // 检查广告位的可用状态和价格字段
+      const isAvailable = adSpaceFields.is_available !== undefined ? 
+        adSpaceFields.is_available : true;
+      const price = adSpaceFields.fixed_price || 
+        (adSpaceFields.price ? adSpaceFields.price : '0');
+        
+      console.log('广告位解析结果: 可用状态=', isAvailable, '价格=', price);
+      
       // 构建广告位数据
       const adSpace: AdSpace = {
         id: adSpaceId,
         name: adSpaceFields.game_id ? `${adSpaceFields.game_id} 广告位` : `广告位 ${adSpaceId.substring(0, 8)}`,
         description: adSpaceFields.location ? `位于 ${adSpaceFields.location} 的广告位` : '广告位详情',
         imageUrl: `https://via.placeholder.com/${width}x${height}?text=${adSpaceFields.game_id || 'AdSpace'}`,
-        price: adSpaceFields.fixed_price || '0',
+        price: price,
         duration: 30, // 默认30天
         dimension: {
           width,
           height,
         },
         owner: null, // 初始没有所有者
-        available: adSpaceFields.is_available !== undefined ? adSpaceFields.is_available : true,
+        available: isAvailable,
         location: adSpaceFields.location || '未知位置',
       };
       
+      console.log('成功构建广告位对象:', adSpace);
       return adSpace;
     } else {
       console.warn('获取的广告位不是Move对象类型:', adSpaceObject.data?.content?.dataType);
@@ -1123,233 +1425,7 @@ export async function getAdSpaceById(adSpaceId: string): Promise<AdSpace | null>
 
 // 获取游戏开发者创建的广告位列表
 export async function getCreatedAdSpaces(developerAddress: string): Promise<AdSpace[]> {
-  try {
-    console.log('获取开发者创建的广告位列表, 开发者地址:', developerAddress);
-    
-    if (!developerAddress) {
-      console.error('开发者地址为空');
-      throw new Error('Developer address is required');
-    }
-    
-    // 从链上获取当前广告位数据
-    console.log('尝试直接从区块链上获取开发者广告位...');
-    const client = createSuiClient();
-    
-    // 获取工厂对象，包含ad_spaces列表
-    const factoryObject = await client.getObject({
-      id: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
-      options: {
-        showContent: true,
-        showDisplay: true,
-        showType: true,
-      }
-    });
-    
-    console.log('获取到工厂对象:', factoryObject);
-    
-    // 从工厂对象中直接解析广告位列表
-    if (factoryObject.data?.content?.dataType === 'moveObject') {
-      const fields = factoryObject.data.content.fields as any;
-      console.log('工厂对象字段:', fields);
-      
-      // 检查控制台输出中的ad_spaces_id字段
-      if (fields && fields.ad_spaces) {
-        console.log('广告位列表数据结构:', JSON.stringify(fields.ad_spaces, null, 2));
-        
-        // 获取广告位条目
-        let adSpaceEntries = [];
-        if (Array.isArray(fields.ad_spaces)) {
-          adSpaceEntries = fields.ad_spaces;
-          console.log('获取到广告位条目数组:', adSpaceEntries.length);
-          
-          // 如果广告位数组为空，提前返回空状态
-          if (adSpaceEntries.length === 0) {
-            console.log('广告位列表为空数组，返回空状态提示');
-            return [{
-              id: '0x0',
-              name: '您还没有创建广告位',
-              description: '您尚未创建任何广告位，点击"创建广告位"按钮开始创建您的第一个广告位。',
-              imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
-              price: '0',
-              duration: 365,
-              dimension: { width: 300, height: 250 },
-              owner: null,
-              available: true,
-              location: '无',
-              isExample: true, // 标记为示例数据
-              price_description: '点击创建您的第一个广告位'
-            }];
-          }
-        } else {
-          console.log('广告位数据不是数组，尝试从调试输出中提取');
-          adSpaceEntries = [fields.ad_spaces];
-        }
-        
-        // 获取广告位ID列表
-        const myAdSpacePromises = [];
-        
-        // 规范化开发者地址
-        const normalizedDevAddress = developerAddress.toLowerCase();
-        
-        // 遍历所有广告位条目
-        for (const entry of adSpaceEntries) {
-          try {
-            console.log('处理广告位条目:', entry);
-            
-            // 确认条目中的创建者字段匹配当前开发者
-            let creator = null;
-            if (entry.creator) {
-              creator = entry.creator;
-            } else if (entry.fields && entry.fields.creator) {
-              creator = entry.fields.creator;
-            }
-            
-            const creatorStr = typeof creator === 'string' ? creator.toLowerCase() : 
-              (typeof creator === 'object' ? JSON.stringify(creator).toLowerCase() : String(creator).toLowerCase());
-              
-            console.log('比较创建者:', creatorStr, '与开发者:', normalizedDevAddress);
-            
-            const isMatch = creatorStr === normalizedDevAddress || 
-                            creatorStr.includes(normalizedDevAddress) || 
-                            normalizedDevAddress.includes(creatorStr);
-                            
-            if (isMatch) {
-              // 如果匹配，获取广告位ID
-              let adSpaceId: string | null = null;
-              
-              // 检查各种可能的路径以获取ad_space_id
-              if (entry.ad_space_id) {
-                // 直接访问ad_space_id
-                if (typeof entry.ad_space_id === 'string') {
-                  adSpaceId = entry.ad_space_id;
-                } else if (entry.ad_space_id.id) {
-                  adSpaceId = entry.ad_space_id.id;
-                } else if (typeof entry.ad_space_id === 'object') {
-                  adSpaceId = JSON.stringify(entry.ad_space_id);
-                }
-              } else if (entry.fields) {
-                // 通过fields访问
-                if (entry.fields.ad_space_id) {
-                  if (typeof entry.fields.ad_space_id === 'string') {
-                    adSpaceId = entry.fields.ad_space_id;
-                  } else if (entry.fields.ad_space_id.id) {
-                    adSpaceId = entry.fields.ad_space_id.id;
-                  } else if (typeof entry.fields.ad_space_id === 'object') {
-                    // 尝试直接获取对象中的值
-                    const objStr = JSON.stringify(entry.fields.ad_space_id);
-                    console.log('广告位ID对象内容:', objStr);
-                    
-                    // 尝试从JSON字符串中提取ID
-                    const idMatch = objStr.match(/"id"\s*:\s*"(0x[a-fA-F0-9]+)"/);
-                    if (idMatch && idMatch[1]) {
-                      adSpaceId = idMatch[1];
-                    }
-                  }
-                }
-              }
-              
-              console.log('找到匹配的广告位ID:', adSpaceId);
-              
-              if (adSpaceId) {
-                // 如果ID是字符串形式，但包装在引号中，移除引号
-                if (typeof adSpaceId === 'string' && adSpaceId.startsWith('"') && adSpaceId.endsWith('"')) {
-                  adSpaceId = adSpaceId.substring(1, adSpaceId.length - 1);
-                }
-                
-                // 确保ID以0x开头
-                if (typeof adSpaceId === 'string' && adSpaceId.startsWith('0x')) {
-                  // 异步获取广告位详情
-                  myAdSpacePromises.push(getAdSpaceById(adSpaceId).then(adSpace => {
-                    if (adSpace) {
-                      console.log('成功获取广告位详情:', adSpace.id);
-                      return adSpace;
-                    }
-                    return null;
-                  }).catch(err => {
-                    console.error(`获取广告位 ${adSpaceId} 详情失败:`, err);
-                    return null;
-                  }));
-                } else {
-                  console.warn('解析出的广告位ID格式不正确:', adSpaceId);
-                }
-              }
-            }
-          } catch (err) {
-            console.error('处理广告位条目出错:', err);
-          }
-        }
-        
-        // 等待所有广告位查询完成
-        console.log('等待广告位查询完成...');
-        const adSpacesResults = await Promise.all(myAdSpacePromises);
-        const validAdSpaces = adSpacesResults.filter(Boolean) as AdSpace[];
-        
-        console.log('获取到有效广告位数量:', validAdSpaces.length);
-        
-        // 如果没有找到任何广告位，返回默认广告位
-        if (validAdSpaces.length === 0) {
-          console.log('未找到开发者创建的广告位，返回空状态提示广告位');
-          return [{
-            id: '0x0',
-            name: '您还没有创建广告位',
-            description: '您尚未创建任何广告位，点击"创建广告位"按钮开始创建您的第一个广告位。',
-            imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
-            price: '0',
-            duration: 365,
-            dimension: { width: 300, height: 250 },
-            owner: null,
-            available: true,
-            location: '无',
-            isExample: true, // 标记为示例数据
-            price_description: '点击创建您的第一个广告位'
-          }];
-        }
-        
-        // 规范化广告位数据
-        return validAdSpaces.map(adSpace => ({
-          ...adSpace,
-          name: adSpace.name || `广告位 ${adSpace.id.substring(0, 8)}`,
-          description: adSpace.description || `位于 ${adSpace.location || '未知位置'} 的广告位`,
-          imageUrl: adSpace.imageUrl || `https://via.placeholder.com/${adSpace.dimension.width}x${adSpace.dimension.height}?text=${encodeURIComponent(adSpace.name || 'AdSpace')}`,
-          price_description: '价格为365天的租赁费用' // 添加价格描述说明
-        }));
-      }
-    }
-    
-    // 如果无法从链上获取数据，返回默认广告位
-    console.log('从链上未能获取到广告位数据，返回空状态提示');
-    return [{
-      id: '0x0',
-      name: '无法获取广告位数据',
-      description: '无法从区块链获取广告位数据，请稍后刷新页面重试。',
-      imageUrl: 'https://via.placeholder.com/300x250?text=无法获取数据',
-      price: '0',
-      duration: 365,
-      dimension: { width: 300, height: 250 },
-      owner: null,
-      available: false,
-      location: '无',
-      isExample: true, // 标记为示例数据
-      price_description: '请稍后刷新页面重试'
-    }];
-  } catch (error) {
-    console.error('获取开发者广告位列表失败:', error);
-    // 返回一个错误提示广告位
-    return [{
-      id: '0x0',
-      name: '获取广告位失败',
-      description: '获取广告位数据时发生错误，请稍后刷新页面重试。',
-      imageUrl: 'https://via.placeholder.com/300x250?text=加载出错',
-      price: '0',
-      duration: 365,
-      dimension: { width: 300, height: 250 },
-      owner: null,
-      available: false,
-      location: '无',
-      isExample: true, // 标记为示例数据
-      price_description: '请稍后刷新页面重试'
-    }];
-  }
+  return getAllAdSpacesFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID, developerAddress);
 }
 
 // 移除游戏开发者的交易

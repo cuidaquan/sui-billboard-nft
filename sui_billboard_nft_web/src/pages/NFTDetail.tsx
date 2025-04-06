@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { Card, Typography, Alert, Spin, Button, Descriptions, Space, Tag, Modal, Input, Form, Select } from 'antd';
 import { EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { BillboardNFT, RenewNFTParams } from '../types';
@@ -12,6 +12,7 @@ const { Option } = Select;
 
 const NFTDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const [nft, setNft] = useState<BillboardNFT | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +25,31 @@ const NFTDetailPage: React.FC = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [calculatingPrice, setCalculatingPrice] = useState<boolean>(false);
   const [renewPrice, setRenewPrice] = useState<string>('0');
+
+  // 本地日期格式化函数（带时间）
+  const formatDateWithTime = (timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return '无效日期';
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      
+      return `${year}/${month}/${day} ${hours}:${minutes}`;
+    } catch (error) {
+      return '无效日期';
+    }
+  };
+
+  // 检查是否是续期路径
+  useEffect(() => {
+    if (location.pathname.includes('/renew')) {
+      setRenewLeaseVisible(true);
+    }
+  }, [location.pathname]);
 
   // 获取NFT详情
   useEffect(() => {
@@ -96,6 +122,16 @@ const NFTDetailPage: React.FC = () => {
     }
   };
 
+  // 处理关闭续期对话框
+  const closeRenewModal = () => {
+    setRenewLeaseVisible(false);
+    
+    // 如果当前路径是续期路径，则返回到NFT详情页
+    if (location.pathname.includes('/renew')) {
+      window.history.pushState({}, '', `/my-nfts/${id}`);
+    }
+  };
+
   // 续租NFT
   const handleRenewLease = async () => {
     if (!nft) return;
@@ -126,7 +162,7 @@ const NFTDetailPage: React.FC = () => {
         leaseEnd: newEndDate.toISOString()
       });
       
-      setRenewLeaseVisible(false);
+      closeRenewModal();
     } catch (err) {
       console.error('续租失败:', err);
     } finally {
@@ -186,7 +222,16 @@ const NFTDetailPage: React.FC = () => {
                 </a>
               </Descriptions.Item>
               <Descriptions.Item label="租期">
-                {formatDate(new Date(nft.leaseStart).getTime())} - {formatDate(new Date(nft.leaseEnd).getTime())}
+                <Space direction="vertical" size={4}>
+                  <div>
+                    <Text type="secondary">开始: </Text>
+                    <Text strong>{formatDateWithTime(nft.leaseStart)}</Text>
+                  </div>
+                  <div>
+                    <Text type="secondary">结束: </Text>
+                    <Text strong>{formatDateWithTime(nft.leaseEnd)}</Text>
+                  </div>
+                </Space>
               </Descriptions.Item>
               <Descriptions.Item label="状态">
                 <Tag color={isExpired ? "red" : "green"}>
@@ -259,9 +304,9 @@ const NFTDetailPage: React.FC = () => {
       <Modal
         title="续租NFT"
         open={renewLeaseVisible}
-        onCancel={() => setRenewLeaseVisible(false)}
+        onCancel={closeRenewModal}
         footer={[
-          <Button key="cancel" onClick={() => setRenewLeaseVisible(false)}>
+          <Button key="cancel" onClick={closeRenewModal}>
             取消
           </Button>,
           <Button 

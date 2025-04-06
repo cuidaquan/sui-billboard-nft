@@ -41,44 +41,50 @@ const AdSpacesPage: React.FC = () => {
         <Row gutter={[24, 24]} className="ad-spaces-grid">
           {adSpaces.map(adSpace => (
             <Col xs={24} sm={12} md={8} lg={6} key={adSpace.id}>
-              <Link to={`/ad-spaces/${adSpace.id}`}>
-                <Card
-                  hoverable
-                  className="ad-space-card"
-                  cover={
-                    <div className="card-cover">
-                      <div className="ad-space-image-placeholder">
-                        <div className="placeholder-content">
-                          <Text strong>{adSpace.name}</Text>
-                          <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-                        </div>
+              <Card
+                hoverable
+                className="ad-space-card"
+                cover={
+                  <div className="card-cover">
+                    <div className="ad-space-image-placeholder">
+                      <div className="placeholder-content">
+                        <Text strong>{adSpace.name}</Text>
+                        <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
                       </div>
                     </div>
+                  </div>
+                }
+                actions={[
+                  <Link to={`/ad-spaces/${adSpace.id}`} key="view">
+                    <Button type="link">查看详情</Button>
+                  </Link>,
+                  <Link to={`/ad-spaces/${adSpace.id}/purchase`} key="purchase">
+                    <Button type="primary">立即购买</Button>
+                  </Link>
+                ]}
+              >
+                <Card.Meta
+                  title={adSpace.name}
+                  description={
+                    <>
+                      <div className="ad-space-info">
+                        <Text type="secondary">尺寸: {adSpace.dimension.width} x {adSpace.dimension.height}</Text>
+                      </div>
+                      <div className="ad-space-info">
+                        <Text type="secondary">位置: {adSpace.location}</Text>
+                      </div>
+                      <div className="ad-space-price">
+                        <Text strong>价格: {Number(adSpace.price) / 1000000000} SUI / 天</Text>
+                        {adSpace.price_description && (
+                          <div className="price-description">
+                            <Text type="secondary">{adSpace.price_description}</Text>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   }
-                >
-                  <Card.Meta
-                    title={adSpace.name}
-                    description={
-                      <>
-                        <div className="ad-space-info">
-                          <Text type="secondary">尺寸: {adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-                        </div>
-                        <div className="ad-space-info">
-                          <Text type="secondary">位置: {adSpace.location}</Text>
-                        </div>
-                        <div className="ad-space-price">
-                          <Text strong>价格: {Number(adSpace.price) / 1000000000} SUI / {adSpace.duration}天</Text>
-                          {adSpace.price_description && (
-                            <div className="price-description">
-                              <Text type="secondary">{adSpace.price_description}</Text>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    }
-                  />
-                </Card>
-              </Link>
+                />
+              </Card>
             </Col>
           ))}
         </Row>
@@ -94,14 +100,9 @@ const AdSpacesPage: React.FC = () => {
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
             <div className="empty-actions">
-              <Link to="/manage">
-                <Button type="primary">
-                  成为游戏开发者
-                </Button>
-              </Link>
               <Button 
                 onClick={() => window.location.reload()}
-                style={{ marginLeft: '10px' }}
+                type="primary"
               >
                 刷新页面
               </Button>

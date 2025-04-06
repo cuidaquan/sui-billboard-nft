@@ -9,7 +9,6 @@ import { getUserNFTs } from '../utils/contract';
 import './MyNFTs.scss';
 
 const { Title, Paragraph } = Typography;
-const { TabPane } = Tabs;
 
 const MyNFTsPage: React.FC = () => {
   const [nfts, setNfts] = useState<BillboardNFT[]>([]);
@@ -49,6 +48,38 @@ const MyNFTsPage: React.FC = () => {
     
     fetchNFTs();
   }, [account]);
+  
+  // 创建标签页内容
+  const getTabItems = () => {
+    return [
+      {
+        key: 'active',
+        label: `活跃NFT (${activeNfts.length})`,
+        children: activeNfts.length === 0 ? (
+          <Empty description="没有活跃的NFT" />
+        ) : (
+          <div className="grid">
+            {activeNfts.map(nft => (
+              <NFTCard key={nft.id} nft={nft} />
+            ))}
+          </div>
+        )
+      },
+      {
+        key: 'expired',
+        label: `过期NFT (${expiredNfts.length})`,
+        children: expiredNfts.length === 0 ? (
+          <Empty description="没有过期的NFT" />
+        ) : (
+          <div className="grid">
+            {expiredNfts.map(nft => (
+              <NFTCard key={nft.id} nft={nft} />
+            ))}
+          </div>
+        )
+      }
+    ];
+  };
   
   // 如果用户未连接钱包
   if (!account) {
@@ -104,31 +135,11 @@ const MyNFTsPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        <Tabs defaultActiveKey="active" className="nft-tabs">
-          <TabPane tab={`活跃NFT (${activeNfts.length})`} key="active">
-            {activeNfts.length === 0 ? (
-              <Empty description="没有活跃的NFT" />
-            ) : (
-              <div className="grid">
-                {activeNfts.map(nft => (
-                  <NFTCard key={nft.id} nft={nft} />
-                ))}
-              </div>
-            )}
-          </TabPane>
-          
-          <TabPane tab={`过期NFT (${expiredNfts.length})`} key="expired">
-            {expiredNfts.length === 0 ? (
-              <Empty description="没有过期的NFT" />
-            ) : (
-              <div className="grid">
-                {expiredNfts.map(nft => (
-                  <NFTCard key={nft.id} nft={nft} />
-                ))}
-              </div>
-            )}
-          </TabPane>
-        </Tabs>
+        <Tabs 
+          defaultActiveKey="active" 
+          className="nft-tabs"
+          items={getTabItems()}
+        />
       )}
     </div>
   );

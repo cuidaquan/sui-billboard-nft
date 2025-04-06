@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Spin, Alert, message } from 'antd';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { Typography, Spin, Alert, message, Button } from 'antd';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { AdSpace, PurchaseAdSpaceParams } from '../types';
 import AdSpaceForm from '../components/adSpace/AdSpaceForm';
 import { getAdSpaceDetails, createPurchaseAdSpaceTx, getUserNFTs } from '../utils/contract';
+import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 import './PurchaseAdSpace.scss';
 
 const { Title, Paragraph } = Typography;
@@ -13,6 +14,7 @@ const PurchaseAdSpacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const account = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   
   const [adSpace, setAdSpace] = useState<AdSpace | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -20,28 +22,43 @@ const PurchaseAdSpacePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   
   // 获取广告位详情
-  useEffect(() => {
-    const fetchAdSpace = async () => {
-      if (!id) return;
-      
-      try {
-        setLoading(true);
-        const space = await getAdSpaceDetails(id);
-        setAdSpace(space);
-        
-        if (!space) {
-          setError('未找到广告位或广告位不可用');
-        }
-      } catch (err) {
-        console.error('获取广告位详情失败:', err);
-        setError('获取广告位详情失败，请稍后再试。');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchAdSpace = async () => {
+    if (!id) return;
     
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('正在获取广告位详情, ID:', id);
+      const space = await getAdSpaceDetails(id);
+      console.log('获取广告位结果:', space);
+      
+      setAdSpace(space);
+      
+      if (!space) {
+        setError('未找到广告位或广告位不可用。如果您刚刚创建此广告位，请稍后再试。');
+      } else if (!space.available) {
+        setError('此广告位已被购买，请选择其他可用广告位。');
+      }
+    } catch (err) {
+      console.error('获取广告位详情失败:', err);
+      setError('获取广告位详情失败，请稍后再试。');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
     fetchAdSpace();
   }, [id]);
+  
+  const handleRefresh = () => {
+    fetchAdSpace();
+  };
+  
+  const handleBack = () => {
+    navigate('/ad-spaces');
+  };
   
   // 处理表单提交
   const handleSubmit = async (values: PurchaseAdSpaceParams) => {
@@ -54,8 +71,13 @@ const PurchaseAdSpacePage: React.FC = () => {
       // 显示交易执行中状态
       message.loading({ content: '正在购买广告位...', key: 'purchaseAdSpace', duration: 0 });
       
-      // 创建并执行交易
-      await createPurchaseAdSpaceTx(values);
+      // 创建交易
+      const txb = createPurchaseAdSpaceTx(values);
+      
+      // 执行交易
+      await signAndExecute({
+        transaction: txb.serialize()
+      });
       
       // 交易已提交，显示提交成功消息
       message.success({ content: '广告位购买交易已提交', key: 'purchaseAdSpace', duration: 2 });
@@ -127,6 +149,15 @@ const PurchaseAdSpacePage: React.FC = () => {
           type="info" 
           showIcon
         />
+        
+        <div className="error-actions">
+          <Button 
+            icon={<ArrowLeftOutlined />}
+            onClick={handleBack}
+          >
+            返回广告位列表
+          </Button>
+        </div>
       </div>
     );
   }
@@ -144,12 +175,30 @@ const PurchaseAdSpacePage: React.FC = () => {
           <p>加载广告位信息...</p>
         </div>
       ) : error ? (
-        <Alert 
-          message="错误" 
-          description={error} 
-          type="error" 
-          showIcon
-        />
+        <div className="error-container">
+          <Alert 
+            message="广告位加载失败" 
+            description={error} 
+            type="error" 
+            showIcon
+          />
+          <div className="error-actions">
+            <Button 
+              type="primary" 
+              icon={<ReloadOutlined />} 
+              onClick={handleRefresh}
+              style={{ marginRight: '10px' }}
+            >
+              重新加载
+            </Button>
+            <Button 
+              icon={<ArrowLeftOutlined />}
+              onClick={handleBack}
+            >
+              返回广告位列表
+            </Button>
+          </div>
+        </div>
       ) : adSpace ? (
         <AdSpaceForm 
           adSpace={adSpace}
@@ -157,12 +206,22 @@ const PurchaseAdSpacePage: React.FC = () => {
           isLoading={submitting}
         />
       ) : (
-        <Alert 
-          message="未找到" 
-          description="未找到请求的广告位。" 
-          type="error" 
-          showIcon
-        />
+        <div className="error-container">
+          <Alert 
+            message="未找到广告位" 
+            description="未找到请求的广告位，可能已被删除或尚未创建。" 
+            type="error" 
+            showIcon
+          />
+          <div className="error-actions">
+            <Button 
+              icon={<ArrowLeftOutlined />}
+              onClick={handleBack}
+            >
+              返回广告位列表
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

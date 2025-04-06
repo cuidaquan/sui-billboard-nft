@@ -45,6 +45,7 @@ function App() {
                 <Route path="/ad-spaces/:id/purchase" element={<PurchaseAdSpacePage />} />
                 <Route path="/my-nfts" element={<MyNFTsPage />} />
                 <Route path="/my-nfts/:id" element={<NFTDetailPage />} />
+                <Route path="/my-nfts/:id/renew" element={<NFTDetailPage />} />
                 <Route path="/manage" element={<ManagePage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

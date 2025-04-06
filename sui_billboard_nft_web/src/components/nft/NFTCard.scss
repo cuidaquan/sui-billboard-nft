@@ -31,11 +31,25 @@
       display: flex;
       justify-content: space-between;
       margin-bottom: 8px;
+      align-items: flex-start;
+      
+      &.lease-period {
+        margin-top: 12px;
+        padding: 8px 0;
+        border-top: 1px dashed #e8e8e8;
+        border-bottom: 1px dashed #e8e8e8;
+      }
     }
     
     .nft-status {
       margin-top: 12px;
       text-align: right;
+      
+      .ant-tag {
+        font-weight: 500;
+        padding: 0 8px;
+        border-radius: 4px;
+      }
     }
   }
 } 

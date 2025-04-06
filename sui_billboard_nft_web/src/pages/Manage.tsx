@@ -45,15 +45,14 @@ const ManagePage: React.FC = () => {
         console.log('当前用户角色:', role);
         setUserRole(role);
         
-        // 如果是管理员，获取已注册的开发者列表
+        // 设置默认标签页: 管理员显示开发者管理, 开发者显示创建广告位
         if (role === UserRole.ADMIN) {
+          setActiveKey("devManage");
           const { getGameDevsFromFactory } = await import('../utils/contract');
           const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
           setRegisteredDevs(devs);
-        }
-        
-        // 如果是游戏开发者，获取其创建的广告位
-        if (role === UserRole.GAME_DEV) {
+        } else if (role === UserRole.GAME_DEV) {
+          setActiveKey("create");
           loadMyAdSpaces();
         }
       } catch (err) {
@@ -977,7 +976,8 @@ const ManagePage: React.FC = () => {
                   <InputNumber
                     placeholder="请输入价格"
                     step={0.1}
-                    precision={6}
+                    precision={9}
+                    min={0.000001}
                     style={{ width: '100%' }}
                   />
                 </Form.Item>
@@ -1052,7 +1052,7 @@ const ManagePage: React.FC = () => {
                           </div>
                           <div className="detail-item">
                             <Typography.Text type="secondary">价格:</Typography.Text>
-                            <Typography.Text>{Number(adSpace.price) / 1000000000} SUI/365天</Typography.Text>
+                            <Typography.Text>{Number(adSpace.price) / 1000000000} SUI/天</Typography.Text>
                           </div>
                           {adSpace.price_description && (
                             <div className="detail-item price-description">
@@ -1140,7 +1140,7 @@ const ManagePage: React.FC = () => {
             />
           </Form.Item>
           <Form.Item
-            label="当前价格 (SUI/365天)"
+            label="当前价格 (SUI/天)"
             name="currentPrice"
           >
             <Input 
@@ -1150,7 +1150,7 @@ const ManagePage: React.FC = () => {
             />
           </Form.Item>
           <Form.Item
-            label="新价格 (SUI/365天)"
+            label="新价格 (SUI/天)"
             name="newPrice"
             rules={[
               { required: true, message: '请输入新价格' },
@@ -1160,7 +1160,7 @@ const ManagePage: React.FC = () => {
             <InputNumber
               value={newPrice}
               onChange={setNewPrice}
-              precision={6}
+              precision={9}
               min={0.000001}
               step={0.1}
               style={{ width: '100%' }}

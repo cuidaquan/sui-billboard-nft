@@ -9,6 +9,7 @@ module sui_billboard_nft::ad_space {
     // 错误码
     const ENotCreator: u64 = 1;
     const EInvalidPrice: u64 = 2;
+    const EInvalidLeaseDays: u64 = 3;
 
     // 广告位结构
     public struct AdSpace has key, store {
@@ -19,7 +20,7 @@ module sui_billboard_nft::ad_space {
         is_available: bool,        // 是否可购买
         creator: address,          // 创建者地址
         created_at: u64,           // 创建时间
-        fixed_price: u64,          // 基础固定价格(以SUI为单位)
+        fixed_price: u64,          // 基础固定价格(以SUI为单位，表示一天的租赁价格)
     }
 
     // 事件定义
@@ -165,25 +166,6 @@ module sui_billboard_nft::ad_space {
         transfer::share_object(ad_space)
     }
 
-    /// 计算租赁价格
-    public fun calculate_lease_price(ad_space: &AdSpace, lease_days: u64): u64 {
-        let yearly_price = ad_space.fixed_price;
-        let daily_min_price = yearly_price / 100;
-        let base = 99900; // 0.999
-        let mut factor = 100000; // 1.0
-        let mut i = 0;
-
-        // 计算指数衰减
-        while (i < lease_days) {
-            factor = factor * base / 100000;
-            i = i + 1;
-        };
-
-        // 计算最终价格
-        let price_range = yearly_price - daily_min_price;
-        daily_min_price + price_range * (100000 - factor) / 100000
-    }
-
     // 删除广告位
     public fun delete_ad_space(
         ad_space: AdSpace,
@@ -201,5 +183,44 @@ module sui_billboard_nft::ad_space {
         // 解构并删除广告位
         let AdSpace { id, game_id: _, location: _, size: _, is_available: _, creator: _, created_at: _, fixed_price: _ } = ad_space;
         object::delete(id);
+    }
+
+    /// 使用几何级数公式计算租赁价格
+    public fun calculate_lease_price(ad_space: &AdSpace, lease_days: u64): u64 {
+        // 验证租赁天数在有效范围内
+        assert!(lease_days > 0 && lease_days <= 365, EInvalidLeaseDays);
+        
+        let daily_price = ad_space.fixed_price;  // Y - 一天的租赁价格
+        let ratio = 999000; // a - 比例因子，这里设为0.999
+        let base = 1000000; // 用于表示小数的基数
+        let min_daily_factor = 100000; // 最低日因子(1/10)
+        
+        // 如果只租一天，直接返回每日价格
+        if (lease_days == 1) {
+            return daily_price
+        };
+        
+        // 计算租赁总价
+        let mut total_price = daily_price; // 第一天的价格
+        let mut factor = base; // 初始因子为1.0
+        let mut i = 1; // 从第二天开始计算
+        
+        while (i < lease_days) {
+            // 计算当前因子
+            factor = factor * ratio / base;
+            
+            // 如果因子低于最低值(1/10)，则使用最低值
+            if (factor < min_daily_factor) {
+                // 增加(租赁天数-i)天的最低价格
+                total_price = total_price + daily_price * min_daily_factor * (lease_days - i) / base;
+                break
+            };
+            
+            // 否则增加当前因子对应的价格
+            total_price = total_price + daily_price * factor / base;
+            i = i + 1;
+        };
+        
+        total_price
     }
 } 

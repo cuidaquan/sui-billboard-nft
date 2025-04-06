@@ -3,17 +3,17 @@
 
   .subtitle {
     display: block;
-    margin-bottom: 24px;
-    color: rgba(0, 0, 0, 0.45);
+    margin-bottom: 30px;
+    color: #666;
   }
 
   .loading-container {
     text-align: center;
-    padding: 40px 0;
+    padding: 60px 0;
     
     p {
-      margin-top: 16px;
-      color: rgba(0, 0, 0, 0.45);
+      margin-top: 12px;
+      color: #666;
     }
   }
 
@@ -24,101 +24,123 @@
   .ad-space-card {
     height: 100%;
     transition: all 0.3s;
+    border-radius: 8px;
+    overflow: hidden;
     
     &:hover {
       transform: translateY(-5px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.09);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
     }
     
     .card-cover {
       height: 180px;
-      overflow: hidden;
+      background: #f0f2f5;
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: #f5f5f5;
+      overflow: hidden;
+    }
+    
+    .ad-space-image-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #f6f8fa 0%, #e9ecef 100%);
       
-      img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+      .placeholder-content {
+        text-align: center;
+        padding: 16px;
+        
+        .ant-typography {
+          display: block;
+          
+          &:first-child {
+            font-size: 18px;
+            margin-bottom: 8px;
+          }
+        }
       }
     }
     
-    .ant-card-meta-title {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
     .ad-space-info {
-      margin-bottom: 6px;
-      font-size: 13px;
-      color: rgba(0, 0, 0, 0.65);
+      margin-bottom: 4px;
     }
     
     .ad-space-price {
-      color: #1890ff;
+      margin-top: 8px;
+      
+      .ant-typography-strong {
+        color: #1890ff;
+      }
+      
+      .price-description {
+        font-size: 12px;
+        margin-top: 4px;
+      }
     }
   }
 
   // 空状态样式
   .empty-state-container {
-    display: flex;
-    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
     margin-top: 40px;
     
     .empty-description {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
       
       p {
-        margin: 0;
+        margin-bottom: 8px;
         
-        &.empty-subtitle {
-          color: rgba(0, 0, 0, 0.45);
-          font-size: 14px;
-          margin-top: 8px;
+        &:first-child {
+          font-size: 16px;
+          font-weight: bold;
         }
+      }
+      
+      .empty-subtitle {
+        color: #666;
       }
     }
     
     .empty-actions {
-      margin-top: 16px;
+      margin-top: 24px;
     }
   }
-}
 
-.ad-space-price {
-  margin-top: 8px;
-  
-  .price-description {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #999;
-  }
-}
-
-.ad-space-image-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-color: #f5f5f5;
-  height: 160px;
-  width: 100%;
-  
-  .placeholder-content {
-    text-align: center;
-    padding: 15px;
+  .ant-card-actions {
+    background: #f9f9f9;
     
-    strong {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 16px;
+    .ant-btn-primary {
+      background-color: #1890ff;
+      color: white;
+      border-radius: 4px;
+      padding: 0 20px;
+      
+      &:hover {
+        background-color: #40a9ff;
+      }
     }
     
-    span {
+    .ant-btn-link {
       color: #666;
+      
+      &:hover {
+        color: #1890ff;
+      }
+    }
+  }
+}
+
+// 适配移动设备
+@media (max-width: 576px) {
+  .ad-spaces-page {
+    .ad-space-card {
+      margin-bottom: 16px;
     }
   }
 } 
