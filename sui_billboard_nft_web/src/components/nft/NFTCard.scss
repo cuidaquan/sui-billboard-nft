@@ -39,6 +39,17 @@
         border-top: 1px dashed #e8e8e8;
         border-bottom: 1px dashed #e8e8e8;
       }
+      
+      .ad-space-link {
+        display: flex;
+        align-items: center;
+        color: inherit;
+        
+        &:hover {
+          color: #1677ff;
+          text-decoration: underline;
+        }
+      }
     }
     
     .nft-status {

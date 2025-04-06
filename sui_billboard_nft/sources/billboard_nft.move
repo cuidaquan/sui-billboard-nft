@@ -19,6 +19,8 @@ module sui_billboard_nft::billboard_nft {
     const ENotAdmin: u64 = 7;    // 不是管理员
     const ENotGameDev: u64 = 8;  // 不是游戏开发者
     const ENotAdSpaceCreator: u64 = 9; // 不是广告位创建者
+    const EAdSpaceAlreadyRented: u64 = 10; // 广告位已租用
+    const EInsufficientPayment: u64 = 11; // 支付金额不足
 
     // 一次性见证类型
     public struct BILLBOARD_NFT has drop {}
@@ -175,7 +177,7 @@ module sui_billboard_nft::billboard_nft {
 
     // 购买广告位并创建NFT
     public entry fun purchase_ad_space(
-        factory: &Factory,
+        factory: &mut Factory,
         ad_space: &mut AdSpace,
         mut payment: Coin<SUI>,
         brand_name: String,
@@ -183,6 +185,7 @@ module sui_billboard_nft::billboard_nft {
         project_url: String,
         lease_days: u64,
         clock: &Clock,
+        start_time: u64,
         ctx: &mut TxContext
     ) {
         // 验证广告位是否可用
@@ -221,16 +224,20 @@ module sui_billboard_nft::billboard_nft {
         // 转账给游戏开发者
         transfer::public_transfer(game_dev_payment, ad_space::get_creator(ad_space));
 
-        // 创建NFT
+        // 创建NFT - 根据start_time是否为0决定创建方式
         let nft = nft::create_nft(
             ad_space,
             brand_name,
             content_url,
             project_url,
             lease_days,
+            start_time,
             clock,
             ctx
         );
+
+        // 将NFT ID添加到对应广告位条目
+        factory::add_nft_to_ad_space(factory, object::id(ad_space), object::id(&nft));
 
         // 发送事件
         event::emit(AdSpacePurchased {
@@ -265,7 +272,7 @@ module sui_billboard_nft::billboard_nft {
 
     // 续租广告位
     public entry fun renew_lease(
-        factory: &Factory,
+        factory: &mut Factory,
         ad_space: &mut AdSpace,
         nft: &mut nft::AdBoardNFT,
         mut payment: Coin<SUI>,

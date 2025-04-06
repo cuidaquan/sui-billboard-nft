@@ -3,7 +3,7 @@ import { Card, Button, Typography, Tag, Space } from 'antd';
 import { Link } from 'react-router-dom';
 import { BillboardNFT } from '../../types';
 import { formatDate } from '../../utils/format';
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import './NFTCard.scss';
 
 const { Text, Title } = Typography;
@@ -59,7 +59,10 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft }) => {
       <div className="nft-info">
         <div className="info-row">
           <Text type="secondary">广告位ID:</Text>
-          <Text>{nft.adSpaceId.substring(0, 8)}...</Text>
+          <Link to={`/ad-spaces/${nft.adSpaceId}`} className="ad-space-link">
+            <Text>{nft.adSpaceId.substring(0, 8)}...</Text>
+            <LinkOutlined style={{ marginLeft: 4, fontSize: '12px' }} />
+          </Link>
         </div>
         
         <div className="info-row lease-period">

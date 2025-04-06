@@ -551,7 +551,7 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
     return txb;
   }
   
-  console.log('构建购买广告位交易');
+  console.log('构建购买广告位交易', params);
   
   // 获取Clock对象
   const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
@@ -559,19 +559,32 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   // 创建SUI支付对象
   const payment = txb.splitCoins(txb.gas, [txb.pure(params.price)]);
   
+  // 准备参数
+  const args = [
+    txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+    txb.object(params.adSpaceId), // ad_space
+    payment, // payment
+    txb.pure(params.brandName), // brand_name
+    txb.pure(params.contentUrl), // content_url
+    txb.pure(params.projectUrl), // project_url
+    txb.pure(params.leaseDays), // lease_days
+    clockObj, // clock
+  ];
+  
+  // 如果指定了开始时间，使用该时间；否则使用0表示不使用自定义开始时间
+  const startTime = params.startTime ? params.startTime : 0;
+  args.push(txb.pure(startTime)); // start_time (unix timestamp，0表示使用当前时间)
+  
+  if (params.startTime) {
+    console.log('使用自定义开始时间:', new Date(params.startTime * 1000).toLocaleString());
+  } else {
+    console.log('使用当前时间作为开始时间');
+  }
+  
   // 调用合约的purchase_ad_space函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
-    arguments: [
-      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
-      txb.object(params.adSpaceId), // ad_space
-      payment, // payment
-      txb.pure(params.brandName), // brand_name
-      txb.pure(params.contentUrl), // content_url
-      txb.pure(params.projectUrl), // project_url
-      txb.pure(params.leaseDays), // lease_days
-      clockObj, // clock
-    ],
+    arguments: args,
   });
   
   return txb;

@@ -123,6 +123,7 @@ module sui_billboard_nft::ad_space {
         is_available: bool,
         ctx: &mut TxContext
     ) {
+        // 检查是否为创建者
         assert!(tx_context::sender(ctx) == ad_space.creator, ENotCreator);
         
         ad_space.is_available = is_available;

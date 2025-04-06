@@ -14,7 +14,8 @@ module sui_billboard_nft::factory {
     // 广告位条目结构
     public struct AdSpaceEntry has store, copy, drop {
         ad_space_id: ID,
-        creator: address
+        creator: address,
+        nft_ids: vector<ID>  // 存储广告位中的所有NFT ID
     }
 
     // 工厂结构，用于管理广告位和分成比例
@@ -82,7 +83,8 @@ module sui_billboard_nft::factory {
     ) {
         let entry = AdSpaceEntry {
             ad_space_id,
-            creator
+            creator,
+            nft_ids: vector::empty<ID>()
         };
         vector::push_back(&mut factory.ad_spaces, entry);
 
@@ -273,5 +275,44 @@ module sui_billboard_nft::factory {
             ad_space_id,
             removed_by: tx_context::sender(ctx)
         });
+    }
+
+    // 添加NFT到广告位
+    public fun add_nft_to_ad_space(
+        factory: &mut Factory,
+        ad_space_id: ID,
+        nft_id: ID
+    ) {
+        let len = vector::length(&factory.ad_spaces);
+        let mut i = 0;
+        
+        while (i < len) {
+            let entry = vector::borrow_mut(&mut factory.ad_spaces, i);
+            if (entry.ad_space_id == ad_space_id) {
+                vector::push_back(&mut entry.nft_ids, nft_id);
+                return
+            };
+            i = i + 1;
+        };
+        
+        // 如果找不到广告位，则中止执行
+        abort EAdSpaceNotFound
+    }
+    
+    // 获取广告位的所有NFT ID
+    public fun get_ad_space_nft_ids(factory: &Factory, ad_space_id: ID): vector<ID> {
+        let len = vector::length(&factory.ad_spaces);
+        let mut i = 0;
+        
+        while (i < len) {
+            let entry = vector::borrow(&factory.ad_spaces, i);
+            if (entry.ad_space_id == ad_space_id) {
+                return *&entry.nft_ids
+            };
+            i = i + 1;
+        };
+        
+        // 如果找不到广告位，返回空vector
+        vector::empty<ID>()
     }
 }

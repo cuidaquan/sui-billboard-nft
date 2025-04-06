@@ -102,6 +102,7 @@ module sui_billboard_nft::nft {
         content_url: String,
         project_url: String,
         lease_duration: u64,
+        start_time: u64,
         clock: &Clock,
         ctx: &mut TxContext
     ): AdBoardNFT {
@@ -114,8 +115,12 @@ module sui_billboard_nft::nft {
             brand_name,
             content_url,
             project_url,
-            lease_start: clock::timestamp_ms(clock) / 1000,
-            lease_end: (clock::timestamp_ms(clock) / 1000) + (lease_duration * SECONDS_PER_DAY),
+            lease_start: if (start_time == 0) { clock::timestamp_ms(clock) / 1000 } else { start_time },
+            lease_end: if (start_time == 0) {
+                (clock::timestamp_ms(clock) / 1000) + (lease_duration * SECONDS_PER_DAY)
+            } else {
+                start_time + (lease_duration * SECONDS_PER_DAY)
+            },
             is_active: true
         };
 

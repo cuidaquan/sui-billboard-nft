@@ -168,12 +168,12 @@ module sui_billboard_nft::billboard_nft_tests {
         // 买家购买广告位
         ts::next_tx(&mut scenario, BUYER);
         {
-            let factory = ts::take_shared<Factory>(&scenario);
+            let mut factory = ts::take_shared<Factory>(&scenario);
             let mut ad_space = ts::take_shared<AdSpace>(&scenario);
             let payment = ts::take_from_sender<Coin<SUI>>(&scenario);
             
             billboard_nft::purchase_ad_space(
-                &factory,
+                &mut factory,
                 &mut ad_space,
                 payment,
                 string::utf8(b"TestBrand"),
@@ -181,6 +181,7 @@ module sui_billboard_nft::billboard_nft_tests {
                 string::utf8(b"https://example.com"),
                 LEASE_DAYS,
                 &clock,
+                0, // 立即开始
                 ts::ctx(&mut scenario)
             );
             
@@ -242,12 +243,12 @@ module sui_billboard_nft::billboard_nft_tests {
         // 买家购买广告位
         ts::next_tx(&mut scenario, BUYER);
         {
-            let factory = ts::take_shared<Factory>(&scenario);
+            let mut factory = ts::take_shared<Factory>(&scenario);
             let mut ad_space = ts::take_shared<AdSpace>(&scenario);
             let payment = ts::take_from_sender<Coin<SUI>>(&scenario);
             
             billboard_nft::purchase_ad_space(
-                &factory,
+                &mut factory,
                 &mut ad_space,
                 payment,
                 string::utf8(b"TestBrand"),
@@ -255,6 +256,7 @@ module sui_billboard_nft::billboard_nft_tests {
                 string::utf8(b"https://example.com"),
                 LEASE_DAYS,
                 &clock,
+                0, // 立即开始
                 ts::ctx(&mut scenario)
             );
             
@@ -493,12 +495,12 @@ module sui_billboard_nft::billboard_nft_tests {
         // 买家购买广告位
         ts::next_tx(&mut scenario, BUYER);
         {
-            let factory = ts::take_shared<Factory>(&scenario);
+            let mut factory = ts::take_shared<Factory>(&scenario);
             let mut ad_space = ts::take_shared<AdSpace>(&scenario);
             let payment = ts::take_from_sender<Coin<SUI>>(&scenario);
             
             billboard_nft::purchase_ad_space(
-                &factory,
+                &mut factory,
                 &mut ad_space,
                 payment,
                 string::utf8(b"TestBrand"),
@@ -506,6 +508,7 @@ module sui_billboard_nft::billboard_nft_tests {
                 string::utf8(b"https://example.com"),
                 LEASE_DAYS,
                 &clock,
+                0, // 立即开始
                 ts::ctx(&mut scenario)
             );
             
@@ -520,13 +523,13 @@ module sui_billboard_nft::billboard_nft_tests {
         // 买家续租广告位
         ts::next_tx(&mut scenario, BUYER);
         {
-            let factory = ts::take_shared<Factory>(&scenario);
+            let mut factory = ts::take_shared<Factory>(&scenario);
             let mut ad_space = ts::take_shared<AdSpace>(&scenario);
             let mut nft = ts::take_from_sender<AdBoardNFT>(&scenario);
             let payment = ts::take_from_sender<Coin<SUI>>(&scenario);
             
             billboard_nft::renew_lease(
-                &factory,
+                &mut factory,
                 &mut ad_space,
                 &mut nft,
                 payment,

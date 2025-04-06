@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Typography, Card, Divider, Select, Space, Spin, Row, Col, Tooltip, Slider, InputNumber } from 'antd';
-import { InfoCircleOutlined, ShoppingCartOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Typography, Card, Divider, Select, Space, Spin, Row, Col, Tooltip, Slider, InputNumber, DatePicker, Switch } from 'antd';
+import { InfoCircleOutlined, ShoppingCartOutlined, QuestionCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { AdSpace, PurchaseAdSpaceParams } from '../../types';
 import { calculateLeasePrice, formatSuiAmount } from '../../utils/contract';
+import dayjs from 'dayjs';
 import './AdSpaceForm.scss';
 
 const { Title, Text, Paragraph } = Typography;
@@ -25,6 +26,8 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
   const [totalPrice, setTotalPrice] = useState<string>("0");
   const [calculating, setCalculating] = useState<boolean>(false);
   const [contentUrl, setContentUrl] = useState<string>("");
+  const [useCustomStartTime, setUseCustomStartTime] = useState<boolean>(false);
+  const [startTime, setStartTime] = useState<dayjs.Dayjs | null>(null);
   
   // 获取租赁价格
   useEffect(() => {
@@ -73,6 +76,14 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
       price: priceInMist
     };
     
+    // 如果使用自定义开始时间，添加startTime字段
+    if (useCustomStartTime && startTime) {
+      params.startTime = Math.floor(startTime.valueOf() / 1000); // 转换为Unix时间戳（秒）
+      console.log('使用自定义开始时间:', new Date(params.startTime * 1000).toLocaleString(), '时间戳:', params.startTime);
+    } else {
+      console.log('使用当前时间作为开始时间');
+    }
+    
     onSubmit(params);
   };
 
@@ -110,7 +121,8 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
         layout="vertical"
         onFinish={handleSubmit}
         initialValues={{
-          leaseDays: 30
+          leaseDays: 30,
+          useCustomStartTime: false
         }}
       >
         <Row gutter={16}>
@@ -170,6 +182,58 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
         
         <Row gutter={16}>
           <Col span={24}>
+            <div className="form-section-title">租期设置</div>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="useCustomStartTime"
+              label="自定义开始时间"
+              valuePropName="checked"
+            >
+              <Switch
+                checkedChildren="启用"
+                unCheckedChildren="默认"
+                onChange={(checked) => setUseCustomStartTime(checked)}
+              />
+            </Form.Item>
+            <Text type="secondary" style={{ display: 'block', marginTop: '-15px', marginBottom: '10px' }}>
+              默认使用交易确认时的当前时间
+            </Text>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="startTime"
+              label="广告开始时间"
+              dependencies={['useCustomStartTime']}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!getFieldValue('useCustomStartTime') || value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('请选择开始时间'));
+                  },
+                }),
+              ]}
+            >
+              <DatePicker
+                showTime
+                disabled={!useCustomStartTime}
+                style={{ width: '100%' }}
+                placeholder="选择开始时间"
+                onChange={(date) => setStartTime(date)}
+                disabledDate={(current) => {
+                  // 不能选择过去的日期
+                  return current && current < dayjs().startOf('day');
+                }}
+                format="YYYY-MM-DD HH:mm:ss"
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        
+        <Row gutter={16}>
+          <Col span={24}>
             <div className="form-section-title">广告内容</div>
           </Col>
           <Col span={24}>
@@ -220,10 +284,6 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
         <div className="price-summary">
           <Space direction="vertical" style={{ width: '100%' }}>
             <div className="price-breakdown">
-              <div className="price-breakdown-item">
-                <Text>基础套餐:</Text>
-                <Text>365 天</Text>
-              </div>
               <div className="price-breakdown-item">
                 <Text>您选择的租期:</Text>
                 <Text>{leaseDays} 天</Text>

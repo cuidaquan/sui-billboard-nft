@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Card, Typography, Alert, Spin, Button, Descriptions, Space, Tag, Modal, Input, Form, Select } from 'antd';
-import { EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { EditOutlined, ClockCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { BillboardNFT, RenewNFTParams } from '../types';
 import { getNFTDetails, calculateLeasePrice, formatSuiAmount, createRenewLeaseTx } from '../utils/contract';
 import { formatDate, truncateAddress } from '../utils/format';
 import './NFTDetail.scss';
+import { Link } from 'react-router-dom';
 
 const { Title, Paragraph, Text } = Typography;
 const { Option } = Select;
@@ -213,7 +214,14 @@ const NFTDetailPage: React.FC = () => {
           <Card>
             <Descriptions title="NFT详情" bordered column={1}>
               <Descriptions.Item label="NFT ID">{truncateAddress(nft.id)}</Descriptions.Item>
-              <Descriptions.Item label="广告位ID">{truncateAddress(nft.adSpaceId)}</Descriptions.Item>
+              <Descriptions.Item label="广告位ID">
+                <Space>
+                  <Text>{truncateAddress(nft.adSpaceId)}</Text>
+                  <Link to={`/ad-spaces/${nft.adSpaceId}`}>
+                    <Button size="small" type="link" icon={<LinkOutlined />}>查看广告位</Button>
+                  </Link>
+                </Space>
+              </Descriptions.Item>
               <Descriptions.Item label="所有者">{truncateAddress(nft.owner)}</Descriptions.Item>
               <Descriptions.Item label="品牌名称">{nft.brandName}</Descriptions.Item>
               <Descriptions.Item label="项目网址">

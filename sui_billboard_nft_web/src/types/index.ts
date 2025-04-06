@@ -34,6 +34,7 @@ export interface PurchaseAdSpaceParams {
   projectUrl: string;
   price: string;
   leaseDays: number;
+  startTime?: number; // 可选，指定开始时间的Unix时间戳，不提供则使用当前时间
 }
 
 export interface UpdateNFTContentParams {
