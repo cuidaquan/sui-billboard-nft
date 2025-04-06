@@ -192,9 +192,9 @@ module sui_billboard_nft::ad_space {
         assert!(lease_days > 0 && lease_days <= 365, EInvalidLeaseDays);
         
         let daily_price = ad_space.fixed_price;  // Y - 一天的租赁价格
-        let ratio = 999000; // a - 比例因子，这里设为0.999
+        let ratio = 977000; // a - 比例因子，这里设为0.977000
         let base = 1000000; // 用于表示小数的基数
-        let min_daily_factor = 100000; // 最低日因子(1/10)
+        let min_daily_factor = 500000; // 最低日因子(1/2)
         
         // 如果只租一天，直接返回每日价格
         if (lease_days == 1) {

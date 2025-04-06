@@ -259,21 +259,43 @@ public entry fun renew_lease(
 
 价格计算公式：
 ```move
-let yearly_price = ad_space.fixed_price;
-let daily_min_price = yearly_price / 100;
-let base = 99900; // 0.999
-let factor = 100000; // 1.0
+let daily_price = ad_space.fixed_price;  // 一天的租赁价格
+let ratio = 977000; // 比例因子，这里设为0.977
+let base = 1000000; // 用于表示小数的基数
+let min_daily_factor = 500000; // 最低日因子(1/2)
 
-// 计算指数衰减
-while (i < duration_days) {
-    factor = factor * base / 100000;
-    i = i + 1;
+// 如果只租一天，直接返回每日价格
+if (lease_days == 1) {
+    return daily_price
 };
 
-// 最终价格
-let price_range = yearly_price - daily_min_price;
-price = daily_min_price + price_range * (100000 - factor) / 100000;
+// 计算租赁总价
+let mut total_price = daily_price; // 第一天的价格
+let mut factor = base; // 初始因子为1.0
+let mut i = 1; // 从第二天开始计算
+
+while (i < lease_days) {
+    // 计算当前因子
+    factor = factor * ratio / base;
+    
+    // 如果因子低于最低值(1/2)，则使用最低值
+    if (factor < min_daily_factor) {
+        // 增加(租赁天数-i)天的最低价格
+        total_price = total_price + daily_price * min_daily_factor * (lease_days - i) / base;
+        break
+    };
+    
+    // 否则增加当前因子对应的价格
+    total_price = total_price + daily_price * factor / base;
+    i = i + 1;
+};
 ```
+
+这个定价算法确保:
+1. 租期越长，每天的单价越低
+2. 价格衰减速度由比例因子(0.977)控制，比例越低衰减越快
+3. 每日价格有一个底线保障，不低于基础价格的50%
+4. 第一天始终使用全价，第二天开始应用折扣
 
 ## 测试
 项目包含完整的单元测试，覆盖所有核心功能：

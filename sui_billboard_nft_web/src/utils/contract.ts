@@ -308,8 +308,7 @@ export async function getUserNFTs(owner: string): Promise<BillboardNFT[]> {
       
       // 检查对象类型是否是广告位NFT
       // 更新类型检查以匹配 AdBoardNFT 类型
-      const isNftType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::nft::AdBoardNFT`) || 
-                      typeStr.includes(`nft::AdBoardNFT`);
+      const isNftType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::nft::AdBoardNFT`);
       
       console.log(`[${requestId}] 对象类型检查:`, obj.data.objectId, 'type:', typeStr, 'isNftType:', isNftType, 'contentType:', contentType);
       
@@ -820,9 +819,9 @@ export async function calculateLeasePrice(adSpaceId: string, leaseDays: number):
   }
   
   // 按照合约中的几何级数计算
-  const ratio = BigInt(999000); // 比例因子 0.999
+  const ratio = BigInt(997000); // 比例因子 0.997
   const base = BigInt(1000000); // 基数表示 1.0
-  const minDailyFactor = BigInt(100000); // 最低日因子 0.1
+  const minDailyFactor = BigInt(500000); // 最低日因子 0.5
   
   // 计算租赁总价
   let totalPrice = dailyPrice; // 第一天的价格
