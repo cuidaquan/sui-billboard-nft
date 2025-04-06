@@ -553,5 +553,208 @@ module sui_billboard_nft::billboard_nft_tests {
         ts::end(scenario);
     }
 
+    #[test]
+    fun test_delete_ad_space() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 创建时钟
+        let clock = clock::create_for_testing(ts::ctx(&mut scenario));
+        
+        // 游戏开发者创建广告位
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            
+            billboard_nft::create_ad_space(
+                &mut factory,
+                string::utf8(b"Game123"),
+                string::utf8(b"Lobby"),
+                string::utf8(b"1024x768"),
+                DAILY_PRICE,
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+        };
+        
+        // 验证广告位创建成功
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let ad_space = ts::take_shared<AdSpace>(&scenario);
+            assert!(ad_space::is_available(&ad_space), 0);
+            ts::return_shared(ad_space);
+        };
+        
+        // 游戏开发者删除广告位
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            let ad_space = ts::take_shared<AdSpace>(&scenario);
+            
+            billboard_nft::delete_ad_space(
+                &mut factory,
+                ad_space,
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+        };
+        
+        // 验证广告位已被删除（不存在共享对象）
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            assert!(!ts::has_most_recent_shared<AdSpace>(), 0);
+        };
+        
+        // 清理
+        clock::destroy_for_testing(clock);
+        ts::end(scenario);
+    }
     
+    #[test]
+    #[expected_failure(abort_code = billboard_nft::ENotAdSpaceCreator)]
+    fun test_delete_ad_space_not_creator() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 创建时钟
+        let clock = clock::create_for_testing(ts::ctx(&mut scenario));
+        
+        // 游戏开发者创建广告位
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            
+            billboard_nft::create_ad_space(
+                &mut factory,
+                string::utf8(b"Game123"),
+                string::utf8(b"Lobby"),
+                string::utf8(b"1024x768"),
+                DAILY_PRICE,
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+        };
+        
+        // 非创建者尝试删除广告位，预期失败
+        ts::next_tx(&mut scenario, BUYER);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            let ad_space = ts::take_shared<AdSpace>(&scenario);
+            
+            // 这里会失败并中止测试，所以不需要返回对象
+            billboard_nft::delete_ad_space(
+                &mut factory,
+                ad_space,
+                ts::ctx(&mut scenario)
+            );
+            
+            // 由于上面的调用会失败，以下代码不会执行
+            // 因此不需要返回ad_space (ad_space已经被移动)
+            ts::return_shared(factory);
+        };
+        
+        // 清理
+        clock::destroy_for_testing(clock);
+        ts::end(scenario);
+    }
+    
+    #[test]
+    fun test_update_and_delete_ad_space() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 创建时钟
+        let clock = clock::create_for_testing(ts::ctx(&mut scenario));
+        
+        // 游戏开发者创建广告位
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            
+            billboard_nft::create_ad_space(
+                &mut factory,
+                string::utf8(b"Game123"),
+                string::utf8(b"Lobby"),
+                string::utf8(b"1024x768"),
+                DAILY_PRICE,
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+        };
+        
+        // 游戏开发者更新广告位价格
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut ad_space = ts::take_shared<AdSpace>(&scenario);
+            
+            billboard_nft::update_ad_space_price(
+                &mut ad_space,
+                DAILY_PRICE * 3, // 更新为三倍价格
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(ad_space);
+        };
+        
+        // 验证广告位价格已更新
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let ad_space = ts::take_shared<AdSpace>(&scenario);
+            assert!(ad_space::get_fixed_price(&ad_space) == DAILY_PRICE * 3, 0);
+            ts::return_shared(ad_space);
+        };
+        
+        // 游戏开发者删除广告位
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            let ad_space = ts::take_shared<AdSpace>(&scenario);
+            
+            billboard_nft::delete_ad_space(
+                &mut factory,
+                ad_space,
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+        };
+        
+        // 验证广告位已被删除
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            assert!(!ts::has_most_recent_shared<AdSpace>(), 0);
+        };
+        
+        // 清理
+        clock::destroy_for_testing(clock);
+        ts::end(scenario);
+    }
 } 

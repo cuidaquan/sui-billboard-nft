@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm, Row, Col, Spin, Tooltip } from 'antd';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams, AdSpace } from '../types';
-import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces } from '../utils/contract';
+import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces, updateAdSpacePriceTx, deleteAdSpaceTx, getAdSpaceById } from '../utils/contract';
 import { CONTRACT_CONFIG } from '../config/config';
 import './Manage.scss';
 import { ReloadOutlined } from '@ant-design/icons';
@@ -21,6 +21,11 @@ const ManagePage: React.FC = () => {
   const [activeKey, setActiveKey] = useState<string>("create");
   const [myAdSpaces, setMyAdSpaces] = useState<AdSpace[]>([]);
   const [loadingAdSpaces, setLoadingAdSpaces] = useState<boolean>(false);
+  const [priceModalVisible, setPriceModalVisible] = useState<boolean>(false);
+  const [currentAdSpace, setCurrentAdSpace] = useState<AdSpace | null>(null);
+  const [newPrice, setNewPrice] = useState<number | null>(null);
+  const [priceUpdateLoading, setPriceUpdateLoading] = useState<boolean>(false);
+  const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
   
   const account = useCurrentAccount();
   const suiClient = useSuiClient();
@@ -184,146 +189,114 @@ const ManagePage: React.FC = () => {
       
       console.log('交易创建成功，准备执行');
       
+      // 显示交易执行中状态
+      message.loading({ content: '正在创建广告位...', key: 'createAdSpace', duration: 0 });
+      
       // 执行交易
-      try {
-        // 序列化交易
-        const serializedTx = txb.serialize();
-        console.log('交易序列化成功:', JSON.stringify(serializedTx));
+      await signAndExecute({
+        transaction: txb.serialize()
+      });
+      
+      console.log('交易执行成功，已提交到区块链');
+      
+      // 交易已提交，显示提交成功消息
+      message.success({ content: '广告位创建交易已提交', key: 'createAdSpace', duration: 2 });
+      message.loading({ content: '等待交易确认...', key: 'confirmAdSpace', duration: 0 });
+      
+      // 使用轮询方式检查交易结果，最多尝试5次
+      let attempts = 0;
+      const maxAttempts = 5;
+      let success = false;
+      
+      // 获取事务中的游戏ID，用于后续验证
+      const createdGameId = values.gameId;
+      console.log(`等待游戏ID为"${createdGameId}"的广告位出现在区块链上...`);
+      
+      while (attempts < maxAttempts && !success) {
+        attempts++;
+        // 延迟时间随尝试次数增加
+        const delay = 2000 * attempts;
+        console.log(`尝试第 ${attempts}/${maxAttempts} 次获取广告位数据，等待 ${delay}ms...`);
         
-        // 显示交易执行中状态
-        message.loading({ content: '正在创建广告位...', key: 'createAdSpace', duration: 0 });
+        // 等待一段时间再获取数据，确保链上数据已更新
+        await new Promise(resolve => setTimeout(resolve, delay));
         
-        // 执行交易
-        const txResponse = await signAndExecute({
-          transaction: serializedTx
-        });
-        
-        console.log('交易执行成功，响应:', txResponse);
-        
-        // 交易成功后，显示成功消息
-        message.success({ content: '广告位创建成功！', key: 'createAdSpace', duration: 2 });
-        
-        // 等待足够长的时间让交易确认后再加载广告位列表
-        setTimeout(async () => {
-          try {
-            message.loading({ content: '正在加载最新数据...', key: 'refreshAdSpaces', duration: 0 });
+        try {
+          // 确保account存在
+          if (!account) {
+            console.error('执行期间账户状态发生变化');
+            break;
+          }
+          
+          // 直接从合约获取最新数据
+          const latestAdSpaces = await getCreatedAdSpaces(account.address);
+          
+          // 检查新获取的数据中是否包含刚创建的广告位（通过游戏ID匹配）
+          const foundNewAdSpace = latestAdSpaces.some(
+            adSpace => 
+              !adSpace.isExample && 
+              adSpace.name && 
+              adSpace.name.includes(createdGameId)
+          );
+          
+          if (foundNewAdSpace) {
+            success = true;
+            console.log('成功获取到新创建的广告位数据');
             
-            // 确保account存在
-            if (!account) {
-              console.error('无法检测新广告位: 账户未连接');
-              message.error({ 
-                content: '获取账户信息失败，请刷新页面重试', 
-                key: 'refreshAdSpaces', 
-                duration: 3 
-              });
-              return;
-            }
+            // 成功找到后，更新React状态，保存最新数据
+            setMyAdSpaces(latestAdSpaces.filter(adSpace => !adSpace.isExample));
             
-            // 尝试多次获取最新的广告位数据
-            let attempts = 0;
-            const maxAttempts = 3;
-            let success = false;
-            
-            // 获取事务中的游戏ID，用于后续验证
-            const createdGameId = values.gameId;
-            console.log(`等待游戏ID为"${createdGameId}"的广告位出现在区块链上...`);
-            
-            while (attempts < maxAttempts && !success) {
-              attempts++;
-              // 延迟时间随尝试次数增加
-              const delay = 3000 * attempts;
-              console.log(`尝试第 ${attempts} 次获取广告位数据，等待 ${delay}ms...`);
-              
-              // 等待一段时间再获取数据，确保链上数据已更新
-              await new Promise(resolve => setTimeout(resolve, delay));
-              
-              try {
-                // 再次检查account是否存在
-                if (!account) {
-                  console.error('执行期间账户状态发生变化');
-                  break;
-                }
-                
-                // 直接从合约获取最新数据，而不通过React状态
-                const { getCreatedAdSpaces } = await import('../utils/contract');
-                const latestAdSpaces = await getCreatedAdSpaces(account.address);
-                
-                // 检查新获取的数据中是否包含刚创建的广告位（通过游戏ID匹配）
-                const foundNewAdSpace = latestAdSpaces.some(
-                  adSpace => 
-                    !adSpace.isExample && 
-                    adSpace.name && 
-                    adSpace.name.includes(createdGameId)
-                );
-                
-                if (foundNewAdSpace) {
-                  success = true;
-                  console.log('成功获取到新创建的广告位数据');
-                  
-                  // 成功找到后，更新React状态，保存最新数据
-                  setMyAdSpaces(latestAdSpaces.filter(adSpace => !adSpace.isExample));
-                } else {
-                  console.log('尚未检测到新创建的广告位数据，将继续重试');
-                }
-              } catch (error) {
-                console.error(`第 ${attempts} 次获取广告位数据失败:`, error);
-              }
-            }
-            
-            if (success) {
-              message.success({ 
-                content: '广告位数据已更新', 
-                key: 'refreshAdSpaces', 
-                duration: 2 
-              });
-              // 成功获取数据后再切换到广告位展示页面
-              setActiveKey('myAdSpaces');
-            } else {
-              message.info({ 
-                content: '新创建的广告位可能需要一段时间才能显示，请稍后手动刷新', 
-                key: 'refreshAdSpaces', 
-                duration: 4 
-              });
-              
-              // 切换标签页并启动loadMyAdSpaces来获取数据
-              setActiveKey('myAdSpaces');
-              loadMyAdSpaces();
-            }
-          } catch (loadErr) {
-            console.error('刷新广告位列表失败:', loadErr);
-            message.info({ 
-              content: '无法自动获取最新数据，请稍后手动刷新页面', 
-              key: 'refreshAdSpaces', 
-              duration: 3 
+            // 显示成功确认消息
+            message.success({ 
+              content: '广告位创建成功！数据已确认', 
+              key: 'confirmAdSpace', 
+              duration: 2 
             });
             
-            // 切换标签页并启动loadMyAdSpaces来尝试获取数据
+            // 重置表单
+            adSpaceForm.resetFields();
+            
+            // 关闭创建模态框
+            // TODO: 如果有创建模态框，在此处关闭
+            
+            // 切换到广告位展示页面
             setActiveKey('myAdSpaces');
-            loadMyAdSpaces();
+          } else {
+            console.log('尚未检测到新创建的广告位数据，将继续重试');
           }
-        }, 5000); // 增加初始等待时间到5秒
-      } catch (txError) {
-        console.error('交易执行失败:', txError);
-        const errorMsg = txError instanceof Error ? txError.message : String(txError);
-        // 检查特定错误类型并提供更具体的错误信息
-        if (errorMsg.includes('ENotGameDev')) {
-          setError(`交易执行失败: 您不是注册的游戏开发者`);
-        } else if (errorMsg.includes('InsufficientGas')) {
-          setError(`交易执行失败: gas 费不足，请确保您的钱包中有足够的 SUI`);
-        } else if (errorMsg.includes('InvalidParams') || errorMsg.includes('Invalid params')) {
-          setError(`交易执行失败: 提供给智能合约的参数无效，请检查游戏ID、位置和尺寸格式是否符合要求`);
-          console.error('交易参数:', params);
-        } else {
-          setError(`交易执行失败: ${errorMsg}`);
+        } catch (error) {
+          console.error(`第 ${attempts} 次获取广告位数据失败:`, error);
         }
+      }
+      
+      // 如果多次尝试后仍未找到，显示提示信息
+      if (!success) {
+        message.info({ 
+          content: '新创建的广告位可能需要一段时间才能显示，请稍后手动刷新', 
+          key: 'confirmAdSpace', 
+          duration: 4 
+        });
         
-        message.error({ content: '广告位创建失败，请稍后重试', key: 'createAdSpace', duration: 2 });
+        // 切换到广告位展示页面并尝试重新加载
+        setActiveKey('myAdSpaces');
+        loadMyAdSpaces();
       }
     } catch (err) {
       console.error('创建广告位失败:', err);
       const errorMsg = err instanceof Error ? err.message : String(err);
-      setError(`创建广告位失败: ${errorMsg}`);
-      message.error('创建广告位失败，请稍后重试');
+      
+      // 检查特定错误类型并提供更具体的错误信息
+      if (errorMsg.includes('ENotGameDev')) {
+        setError(`交易执行失败: 您不是注册的游戏开发者`);
+      } else if (errorMsg.includes('InsufficientGas')) {
+        setError(`交易执行失败: gas 费不足，请确保您的钱包中有足够的 SUI`);
+      } else if (errorMsg.includes('InvalidParams') || errorMsg.includes('Invalid params')) {
+        setError(`交易执行失败: 提供给智能合约的参数无效，请检查游戏ID、位置和尺寸格式是否符合要求`);
+      } else {
+        setError(`创建广告位失败: ${errorMsg}`);
+      }
+      
+      message.error({ content: '广告位创建失败', key: 'createAdSpace', duration: 2 });
     } finally {
       setLoading(false);
     }
@@ -631,6 +604,180 @@ const ManagePage: React.FC = () => {
     }
   };
 
+  // 处理调价的模态框
+  const handleUpdatePrice = (adSpace: AdSpace) => {
+    setCurrentAdSpace(adSpace);
+    // 将价格从MIST转换为SUI
+    setNewPrice(Number(adSpace.price) / 1000000000);
+    setPriceModalVisible(true);
+  };
+  
+  // 提交调价
+  const handlePriceUpdateSubmit = async () => {
+    if (!currentAdSpace || newPrice === null || newPrice <= 0) {
+      message.error('请输入有效的价格');
+      return;
+    }
+    
+    try {
+      setPriceUpdateLoading(true);
+      setError(null);
+      
+      // 转换为MIST
+      const priceInMist = BigInt(Math.floor(newPrice * 1000000000));
+      
+      // 构建交易
+      const txb = updateAdSpacePriceTx({
+        adSpaceId: currentAdSpace.id,
+        price: priceInMist.toString()
+      });
+      
+      // 显示交易执行中状态
+      message.loading({ content: '正在更新价格...', key: 'updatePrice', duration: 0 });
+      
+      // 执行交易
+      await signAndExecute({
+        transaction: txb.serialize()
+      });
+      
+      // 交易已提交
+      message.loading({ content: '交易已提交，等待确认...', key: 'updatePrice', duration: 0 });
+      
+      // 使用轮询方式检查交易结果，最多尝试5次
+      let attempts = 0;
+      const maxAttempts = 5;
+      let success = false;
+      
+      while (attempts < maxAttempts && !success) {
+        attempts++;
+        // 增加等待时间
+        const delay = 2000 * attempts;
+        console.log(`等待交易确认，尝试 ${attempts}/${maxAttempts}，等待 ${delay}ms...`);
+        
+        // 等待一段时间再检查
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        try {
+          // 尝试从区块链获取最新的广告位数据
+          const latestAdSpace = await getAdSpaceById(currentAdSpace.id);
+          
+          // 检查价格是否已更新
+          if (latestAdSpace && Number(latestAdSpace.price) === Number(priceInMist.toString())) {
+            success = true;
+            console.log('价格更新已成功确认');
+          } else {
+            console.log('价格尚未更新，继续等待...');
+          }
+        } catch (err) {
+          console.warn(`检查交易结果时出错 (尝试 ${attempts}): `, err);
+        }
+      }
+      
+      // 无论是否成功确认，都显示成功消息（交易已提交到链上）
+      message.success({ content: '广告位价格更新成功', key: 'updatePrice', duration: 2 });
+      
+      // 关闭模态框
+      setPriceModalVisible(false);
+      
+      // 刷新广告位列表
+      try {
+        console.log('开始刷新广告位列表');
+        await loadMyAdSpaces();
+        console.log('广告位列表刷新成功');
+      } catch (err) {
+        console.error('刷新广告位列表失败:', err);
+        message.error('刷新广告位列表失败，请手动刷新页面');
+      }
+    } catch (err) {
+      console.error('更新价格失败:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`更新价格失败: ${errorMsg}`);
+      message.error({ content: '价格更新失败', key: 'updatePrice', duration: 2 });
+    } finally {
+      setPriceUpdateLoading(false);
+    }
+  };
+  
+  // 处理删除广告位
+  const handleDeleteAdSpace = async (adSpaceId: string) => {
+    try {
+      setDeleteLoading(true);
+      setError(null);
+      
+      // 构建交易
+      const txb = deleteAdSpaceTx({
+        factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+        adSpaceId
+      });
+      
+      // 显示交易执行中状态
+      message.loading({ content: '正在删除广告位...', key: 'deleteAdSpace', duration: 0 });
+      
+      // 执行交易
+      await signAndExecute({
+        transaction: txb.serialize()
+      });
+      
+      // 交易已提交
+      message.loading({ content: '交易已提交，等待确认...', key: 'deleteAdSpace', duration: 0 });
+      
+      // 使用轮询方式检查交易结果，最多尝试5次
+      let attempts = 0;
+      const maxAttempts = 5;
+      let success = false;
+      
+      while (attempts < maxAttempts && !success) {
+        attempts++;
+        // 增加等待时间
+        const delay = 2000 * attempts;
+        console.log(`等待删除确认，尝试 ${attempts}/${maxAttempts}，等待 ${delay}ms...`);
+        
+        // 等待一段时间再检查
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        try {
+          // 尝试从区块链获取广告位数据
+          // 如果广告位已删除，应该返回null
+          const latestAdSpace = await getAdSpaceById(adSpaceId);
+          
+          if (!latestAdSpace) {
+            success = true;
+            console.log('广告位删除已成功确认');
+          } else {
+            console.log('广告位尚未删除，继续等待...');
+          }
+        } catch (err) {
+          // 如果返回404错误，也表示广告位已被删除
+          console.warn(`检查交易结果时出错 (尝试 ${attempts}): `, err);
+          if (String(err).includes('not found') || String(err).includes('404')) {
+            success = true;
+            console.log('通过错误确认广告位已删除');
+          }
+        }
+      }
+      
+      // 显示成功消息
+      message.success({ content: '广告位删除成功', key: 'deleteAdSpace', duration: 2 });
+      
+      // 刷新广告位列表
+      try {
+        console.log('开始刷新广告位列表');
+        await loadMyAdSpaces();
+        console.log('广告位列表刷新成功');
+      } catch (err) {
+        console.error('刷新广告位列表失败:', err);
+        message.error('刷新广告位列表失败，请手动刷新页面');
+      }
+    } catch (err) {
+      console.error('删除广告位失败:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`删除广告位失败: ${errorMsg}`);
+      message.error({ content: '删除广告位失败', key: 'deleteAdSpace', duration: 2 });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   // 如果用户未连接钱包，显示提示信息
   if (!account) {
     return (
@@ -926,14 +1073,14 @@ const ManagePage: React.FC = () => {
                             <Button 
                               type="primary" 
                               className="action-button"
-                              onClick={() => {/* 处理编辑广告位操作 */}}
+                              onClick={() => handleUpdatePrice(adSpace)}
                             >
-                              编辑
+                              调价
                             </Button>
                             <Popconfirm
                               title="确定要删除这个广告位吗？"
                               description="删除后无法恢复，且当前所有关联的NFT将无法访问。"
-                              onConfirm={() => {/* 处理删除广告位操作 */}}
+                              onConfirm={() => handleDeleteAdSpace(adSpace.id)}
                               okText="确定"
                               cancelText="取消"
                             >
@@ -961,6 +1108,66 @@ const ManagePage: React.FC = () => {
           </TabPane>
         )}
       </Tabs>
+
+      {/* 价格更新模态框 */}
+      <Modal
+        title="调整广告位价格"
+        open={priceModalVisible}
+        onCancel={() => setPriceModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setPriceModalVisible(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            loading={priceUpdateLoading} 
+            onClick={handlePriceUpdateSubmit}
+          >
+            确认
+          </Button>
+        ]}
+      >
+        <Form layout="vertical">
+          <Form.Item
+            label="广告位"
+            name="adSpaceName"
+          >
+            <Input 
+              value={currentAdSpace?.name} 
+              disabled 
+              placeholder={currentAdSpace?.name || '广告位'}
+            />
+          </Form.Item>
+          <Form.Item
+            label="当前价格 (SUI/365天)"
+            name="currentPrice"
+          >
+            <Input 
+              value={currentAdSpace ? Number(currentAdSpace.price) / 1000000000 : 0} 
+              disabled 
+              placeholder={currentAdSpace ? (Number(currentAdSpace.price) / 1000000000).toString() : '0'}
+            />
+          </Form.Item>
+          <Form.Item
+            label="新价格 (SUI/365天)"
+            name="newPrice"
+            rules={[
+              { required: true, message: '请输入新价格' },
+              { type: 'number', min: 0.000001, message: '价格必须大于0' }
+            ]}
+          >
+            <InputNumber
+              value={newPrice}
+              onChange={setNewPrice}
+              precision={6}
+              min={0.000001}
+              step={0.1}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

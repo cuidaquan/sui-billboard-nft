@@ -157,6 +157,22 @@ module sui_billboard_nft::billboard_nft {
         ad_space::update_price(ad_space, daily_price, ctx)
     }
 
+    // 删除广告位
+    public entry fun delete_ad_space(
+        factory: &mut Factory,
+        ad_space: AdSpace,
+        ctx: &mut TxContext
+    ) {
+        // 验证调用者是否为广告位创建者
+        assert!(ad_space::get_creator(&ad_space) == tx_context::sender(ctx), ENotAdSpaceCreator);
+        
+        // 从工厂中移除广告位
+        factory::remove_ad_space(factory, object::id(&ad_space), ctx);
+        
+        // 删除广告位对象
+        ad_space::delete_ad_space(ad_space, ctx);
+    }
+
     // 购买广告位并创建NFT
     public entry fun purchase_ad_space(
         factory: &Factory,

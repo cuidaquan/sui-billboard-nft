@@ -47,6 +47,12 @@ module sui_billboard_nft::factory {
         game_dev: address
     }
 
+    // 广告位从工厂移除事件
+    public struct AdSpaceRemoved has copy, drop {
+        ad_space_id: ID,
+        removed_by: address
+    }
+
     // 默认分成比例
     const DEFAULT_PLATFORM_RATIO: u8 = 10;  // 平台默认分成 10%
 
@@ -223,5 +229,49 @@ module sui_billboard_nft::factory {
         };
         
         result
+    }
+
+    // 从工厂中移除广告位
+    public fun remove_ad_space(
+        factory: &mut Factory,
+        ad_space_id: ID,
+        ctx: &mut TxContext
+    ) {
+        // 查找广告位的索引
+        let mut i = 0;
+        let len = vector::length(&factory.ad_spaces);
+        let mut found = false;
+        let mut index = 0;
+        let mut creator_address: address = @0x0;
+        
+        while (i < len) {
+            let entry = vector::borrow(&factory.ad_spaces, i);
+            if (entry.ad_space_id == ad_space_id) {
+                found = true;
+                index = i;
+                creator_address = entry.creator;
+                break
+            };
+            i = i + 1;
+        };
+        
+        // 确保广告位存在
+        assert!(found, EAdSpaceNotFound);
+        
+        // 确保调用者是广告位的创建者或管理员
+        assert!(
+            tx_context::sender(ctx) == creator_address || 
+            tx_context::sender(ctx) == factory.admin, 
+            ENotAuthorized
+        );
+        
+        // 移除广告位
+        vector::remove(&mut factory.ad_spaces, index);
+        
+        // 发送事件
+        event::emit(AdSpaceRemoved {
+            ad_space_id,
+            removed_by: tx_context::sender(ctx)
+        });
     }
 }

@@ -43,6 +43,12 @@ module sui_billboard_nft::ad_space {
         updated_by: address
     }
 
+    // 广告位删除事件
+    public struct AdSpaceDeleted has copy, drop {
+        ad_space_id: ID,
+        deleted_by: address
+    }
+
     // 创建广告位
     public fun create_ad_space(
         game_id: String,
@@ -176,5 +182,24 @@ module sui_billboard_nft::ad_space {
         // 计算最终价格
         let price_range = yearly_price - daily_min_price;
         daily_min_price + price_range * (100000 - factor) / 100000
+    }
+
+    // 删除广告位
+    public fun delete_ad_space(
+        ad_space: AdSpace,
+        ctx: &mut TxContext
+    ) {
+        // 确保只有创建者可以删除广告位
+        assert!(tx_context::sender(ctx) == ad_space.creator, ENotCreator);
+        
+        // 发送删除事件
+        event::emit(AdSpaceDeleted {
+            ad_space_id: object::id(&ad_space),
+            deleted_by: tx_context::sender(ctx)
+        });
+        
+        // 解构并删除广告位
+        let AdSpace { id, game_id: _, location: _, size: _, is_available: _, creator: _, created_at: _, fixed_price: _ } = ad_space;
+        object::delete(id);
     }
 } 

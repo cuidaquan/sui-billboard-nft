@@ -83,6 +83,25 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
         if (Array.isArray(fields.ad_spaces)) {
           adSpaceEntries = fields.ad_spaces;
           console.log('获取到广告位条目数组:', adSpaceEntries.length);
+          
+          // 如果广告位数组为空，提前返回空状态
+          if (adSpaceEntries.length === 0) {
+            console.log('广告位列表为空数组，返回空状态提示');
+            return [{
+              id: '0x0',
+              name: '您还没有创建广告位',
+              description: '您尚未创建任何广告位，点击"创建广告位"按钮开始创建您的第一个广告位。',
+              imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
+              price: '0',
+              duration: 365,
+              dimension: { width: 300, height: 250 },
+              owner: null,
+              available: true,
+              location: '无',
+              isExample: true, // 标记为示例数据
+              price_description: '点击创建您的第一个广告位'
+            }];
+          }
         } else {
           console.log('广告位数据不是数组，尝试从调试输出中提取');
           adSpaceEntries = [fields.ad_spaces];
@@ -1142,6 +1161,25 @@ export async function getCreatedAdSpaces(developerAddress: string): Promise<AdSp
         if (Array.isArray(fields.ad_spaces)) {
           adSpaceEntries = fields.ad_spaces;
           console.log('获取到广告位条目数组:', adSpaceEntries.length);
+          
+          // 如果广告位数组为空，提前返回空状态
+          if (adSpaceEntries.length === 0) {
+            console.log('广告位列表为空数组，返回空状态提示');
+            return [{
+              id: '0x0',
+              name: '您还没有创建广告位',
+              description: '您尚未创建任何广告位，点击"创建广告位"按钮开始创建您的第一个广告位。',
+              imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
+              price: '0',
+              duration: 365,
+              dimension: { width: 300, height: 250 },
+              owner: null,
+              available: true,
+              location: '无',
+              isExample: true, // 标记为示例数据
+              price_description: '点击创建您的第一个广告位'
+            }];
+          }
         } else {
           console.log('广告位数据不是数组，尝试从调试输出中提取');
           adSpaceEntries = [fields.ad_spaces];
@@ -1250,20 +1288,20 @@ export async function getCreatedAdSpaces(developerAddress: string): Promise<AdSp
         
         // 如果没有找到任何广告位，返回默认广告位
         if (validAdSpaces.length === 0) {
-          console.log('未找到开发者创建的广告位，返回默认广告位');
+          console.log('未找到开发者创建的广告位，返回空状态提示广告位');
           return [{
-            id: '0x123456789abcdef',
-            name: 'test_game_01',
-            description: '游戏大厅门口广告位',
-            imageUrl: 'https://via.placeholder.com/300x250?text=test_game_01',
-            price: '10000000', // 0.01 SUI
-            duration: 365, // 改为365天
+            id: '0x0',
+            name: '您还没有创建广告位',
+            description: '您尚未创建任何广告位，点击"创建广告位"按钮开始创建您的第一个广告位。',
+            imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
+            price: '0',
+            duration: 365,
             dimension: { width: 300, height: 250 },
             owner: null,
             available: true,
-            location: '游戏大厅入口',
-            isExample: false, // 这是固定返回的数据
-            price_description: '价格为365天的租赁费用' // 添加价格描述说明
+            location: '无',
+            isExample: true, // 标记为示例数据
+            price_description: '点击创建您的第一个广告位'
           }];
         }
         
@@ -1279,37 +1317,37 @@ export async function getCreatedAdSpaces(developerAddress: string): Promise<AdSp
     }
     
     // 如果无法从链上获取数据，返回默认广告位
-    console.log('从链上未能获取到广告位数据，返回默认广告位');
+    console.log('从链上未能获取到广告位数据，返回空状态提示');
     return [{
-      id: '0x123456789abcdef',
-      name: 'test_game_01',
-      description: '游戏大厅门口广告位',
-      imageUrl: 'https://via.placeholder.com/300x250?text=test_game_01',
-      price: '10000000', // 0.01 SUI
-      duration: 365, // 改为365天
+      id: '0x0',
+      name: '无法获取广告位数据',
+      description: '无法从区块链获取广告位数据，请稍后刷新页面重试。',
+      imageUrl: 'https://via.placeholder.com/300x250?text=无法获取数据',
+      price: '0',
+      duration: 365,
       dimension: { width: 300, height: 250 },
       owner: null,
-      available: true,
-      location: '游戏大厅入口',
-      isExample: false, // 这是固定返回的数据
-      price_description: '价格为365天的租赁费用' // 添加价格描述说明
+      available: false,
+      location: '无',
+      isExample: true, // 标记为示例数据
+      price_description: '请稍后刷新页面重试'
     }];
   } catch (error) {
     console.error('获取开发者广告位列表失败:', error);
-    // 返回一个默认广告位，防止UI显示空白
+    // 返回一个错误提示广告位
     return [{
-      id: '0x123456789abcdef',
-      name: 'test_game_01',
-      description: '游戏大厅门口广告位',
-      imageUrl: 'https://via.placeholder.com/300x250?text=test_game_01',
-      price: '10000000', // 0.01 SUI
-      duration: 365, // 改为365天
+      id: '0x0',
+      name: '获取广告位失败',
+      description: '获取广告位数据时发生错误，请稍后刷新页面重试。',
+      imageUrl: 'https://via.placeholder.com/300x250?text=加载出错',
+      price: '0',
+      duration: 365,
       dimension: { width: 300, height: 250 },
       owner: null,
-      available: true,
-      location: '游戏大厅入口',
-      isExample: false, // 这是固定返回的数据
-      price_description: '价格为365天的租赁费用' // 添加价格描述说明
+      available: false,
+      location: '无',
+      isExample: true, // 标记为示例数据
+      price_description: '请稍后刷新页面重试'
     }];
   }
 }
@@ -1324,6 +1362,23 @@ export function removeGameDevTx(params: RemoveGameDevParams): TransactionBlock {
     arguments: [
       txb.object(params.factoryId),  // Factory 对象
       txb.pure(params.developer),    // 开发者地址
+    ],
+  });
+  
+  return txb;
+}
+
+// 创建删除广告位的交易
+export function deleteAdSpaceTx(params: { factoryId: string, adSpaceId: string }): TransactionBlock {
+  console.log('创建删除广告位交易:', params);
+  const { factoryId, adSpaceId } = params;
+  
+  const txb = new TransactionBlock();
+  txb.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::delete_ad_space`,
+    arguments: [
+      txb.object(factoryId),
+      txb.object(adSpaceId)
     ],
   });
   
