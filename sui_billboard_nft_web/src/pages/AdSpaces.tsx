@@ -2,14 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { Typography, Card, Row, Col, Empty, Spin, Button } from 'antd';
 import { Link } from 'react-router-dom';
 import { getAvailableAdSpaces } from '../utils/contract';
-import { AdSpace } from '../types';
+import { AdSpace, UserRole } from '../types';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import './AdSpaces.scss';
+import AdSpaceCard from '../components/adSpace/AdSpaceCard';
 
 const { Title, Text } = Typography;
 
 const AdSpacesPage: React.FC = () => {
   const [adSpaces, setAdSpaces] = useState<AdSpace[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
+  
+  const account = useCurrentAccount();
+  const suiClient = useSuiClient();
+
+  // 检查用户角色
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!account) return;
+      
+      try {
+        // 导入auth.ts中的checkUserRole函数
+        const { checkUserRole } = await import('../utils/auth');
+        
+        // 使用SuiClient和用户地址检查用户角色
+        const role = await checkUserRole(suiClient, account.address);
+        console.log('当前用户角色:', role);
+        setUserRole(role);
+      } catch (err) {
+        console.error('检查用户角色失败:', err);
+      }
+    };
+    
+    checkUserRole();
+  }, [account, suiClient]);
 
   // 获取广告位数据
   useEffect(() => {
@@ -41,50 +68,11 @@ const AdSpacesPage: React.FC = () => {
         <Row gutter={[24, 24]} className="ad-spaces-grid">
           {adSpaces.map(adSpace => (
             <Col xs={24} sm={12} md={8} lg={6} key={adSpace.id}>
-              <Card
-                hoverable
-                className="ad-space-card"
-                cover={
-                  <div className="card-cover">
-                    <div className="ad-space-image-placeholder">
-                      <div className="placeholder-content">
-                        <Text strong>{adSpace.name}</Text>
-                        <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-                      </div>
-                    </div>
-                  </div>
-                }
-                actions={[
-                  <Link to={`/ad-spaces/${adSpace.id}`} key="view">
-                    <Button type="link">查看详情</Button>
-                  </Link>,
-                  <Link to={`/ad-spaces/${adSpace.id}/purchase`} key="purchase">
-                    <Button type="primary">立即购买</Button>
-                  </Link>
-                ]}
-              >
-                <Card.Meta
-                  title={adSpace.name}
-                  description={
-                    <>
-                      <div className="ad-space-info">
-                        <Text type="secondary">尺寸: {adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-                      </div>
-                      <div className="ad-space-info">
-                        <Text type="secondary">位置: {adSpace.location}</Text>
-                      </div>
-                      <div className="ad-space-price">
-                        <Text strong>价格: {Number(adSpace.price) / 1000000000} SUI / 天</Text>
-                        {adSpace.price_description && (
-                          <div className="price-description">
-                            <Text type="secondary">{adSpace.price_description}</Text>
-                          </div>
-                        )}
-                      </div>
-                    </>
-                  }
-                />
-              </Card>
+              <AdSpaceCard 
+                adSpace={adSpace}
+                userRole={userRole}
+                creatorAddress={(adSpace as any).creator}
+              />
             </Col>
           ))}
         </Row>

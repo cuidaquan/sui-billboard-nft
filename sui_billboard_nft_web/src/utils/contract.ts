@@ -185,6 +185,44 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
           }];
         }
         
+        // 获取每个广告位的创建者信息
+        for (const adSpace of availableAdSpaces) {
+          try {
+            // 从工厂对象中查找对应的广告位条目，获取创建者信息
+            const matchingEntry = adSpaceEntries.find((entry: any) => {
+              // 从条目中提取广告位ID
+              let entryAdSpaceId = null;
+              if (entry.ad_space_id) {
+                if (typeof entry.ad_space_id === 'string') {
+                  entryAdSpaceId = entry.ad_space_id;
+                } else if (entry.ad_space_id.id) {
+                  entryAdSpaceId = entry.ad_space_id.id;
+                }
+              } else if (entry.fields && entry.fields.ad_space_id) {
+                if (typeof entry.fields.ad_space_id === 'string') {
+                  entryAdSpaceId = entry.fields.ad_space_id;
+                } else if (entry.fields.ad_space_id.id) {
+                  entryAdSpaceId = entry.fields.ad_space_id.id;
+                }
+              }
+              
+              // 比较ID
+              return entryAdSpaceId === adSpace.id;
+            });
+            
+            // 如果找到匹配的条目且有创建者信息，则添加到广告位对象
+            if (matchingEntry && matchingEntry.creator) {
+              (adSpace as any).creator = matchingEntry.creator;
+              console.log(`为广告位 ${adSpace.id} 添加创建者信息:`, matchingEntry.creator);
+            } else if (matchingEntry && matchingEntry.fields && matchingEntry.fields.creator) {
+              (adSpace as any).creator = matchingEntry.fields.creator;
+              console.log(`为广告位 ${adSpace.id} 添加创建者信息:`, matchingEntry.fields.creator);
+            }
+          } catch (err) {
+            console.error(`为广告位 ${adSpace.id} 添加创建者信息时出错:`, err);
+          }
+        }
+        
         // 规范化广告位数据
         return availableAdSpaces.map(adSpace => ({
           ...adSpace,
@@ -491,8 +529,80 @@ export async function getAdSpaceDetails(adSpaceId: string): Promise<AdSpace | nu
   try {
     console.log('从链上获取广告位详情数据, ID:', adSpaceId);
     
-    // 调用getAdSpaceById函数获取广告位详情
-    return await getAdSpaceById(adSpaceId);
+    // 获取广告位基本信息
+    const adSpace = await getAdSpaceById(adSpaceId);
+    if (!adSpace) {
+      console.error('未找到广告位:', adSpaceId);
+      return null;
+    }
+    
+    // 获取工厂对象，以获取广告位的创建者信息
+    try {
+      const client = createSuiClient();
+      
+      // 获取工厂对象
+      const factoryObject = await client.getObject({
+        id: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+        options: {
+          showContent: true,
+          showDisplay: true,
+          showType: true,
+        }
+      });
+      
+      // 从工厂对象中寻找对应广告位的创建者信息
+      if (factoryObject.data?.content?.dataType === 'moveObject') {
+        const fields = factoryObject.data.content.fields as any;
+        
+        // 解析广告位条目
+        if (fields && fields.ad_spaces) {
+          let adSpaceEntries = [];
+          if (Array.isArray(fields.ad_spaces)) {
+            adSpaceEntries = fields.ad_spaces;
+          } else {
+            adSpaceEntries = [fields.ad_spaces];
+          }
+          
+          // 寻找匹配的广告位条目
+          const matchingEntry = adSpaceEntries.find((entry: any) => {
+            // 提取广告位ID
+            let entryAdSpaceId = null;
+            if (entry.ad_space_id) {
+              if (typeof entry.ad_space_id === 'string') {
+                entryAdSpaceId = entry.ad_space_id;
+              } else if (entry.ad_space_id.id) {
+                entryAdSpaceId = entry.ad_space_id.id;
+              }
+            } else if (entry.fields && entry.fields.ad_space_id) {
+              if (typeof entry.fields.ad_space_id === 'string') {
+                entryAdSpaceId = entry.fields.ad_space_id;
+              } else if (entry.fields.ad_space_id.id) {
+                entryAdSpaceId = entry.fields.ad_space_id.id;
+              }
+            }
+            
+            return entryAdSpaceId === adSpaceId;
+          });
+          
+          // 如果找到匹配的条目，添加创建者信息
+          if (matchingEntry) {
+            // 提取创建者信息
+            if (matchingEntry.creator) {
+              (adSpace as any).creator = matchingEntry.creator;
+              console.log(`为广告位详情添加创建者信息:`, matchingEntry.creator);
+            } else if (matchingEntry.fields && matchingEntry.fields.creator) {
+              (adSpace as any).creator = matchingEntry.fields.creator;
+              console.log(`为广告位详情添加创建者信息:`, matchingEntry.fields.creator);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('获取广告位创建者信息失败:', error);
+      // 即使获取创建者信息失败，也返回广告位基本信息
+    }
+    
+    return adSpace;
   } catch (error) {
     console.error('获取广告位详情失败:', error);
     return null;

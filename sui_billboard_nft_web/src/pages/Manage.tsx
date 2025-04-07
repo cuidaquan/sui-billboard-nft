@@ -183,6 +183,15 @@ const ManagePage: React.FC = () => {
       
       console.log('准备创建广告位，参数:', params);
       
+      // 在创建交易前，先获取当前用户的广告位数量
+      let currentAdSpaces = [];
+      if (account) {
+        currentAdSpaces = await getCreatedAdSpaces(account.address);
+        currentAdSpaces = currentAdSpaces.filter(adSpace => !adSpace.isExample);
+      }
+      const currentAdSpaceCount = currentAdSpaces.length;
+      console.log('创建前广告位数量:', currentAdSpaceCount);
+      
       // 创建交易
       const txb = createAdSpaceTx(params);
       
@@ -207,9 +216,7 @@ const ManagePage: React.FC = () => {
       const maxAttempts = 5;
       let success = false;
       
-      // 获取事务中的游戏ID，用于后续验证
-      const createdGameId = values.gameId;
-      console.log(`等待游戏ID为"${createdGameId}"的广告位出现在区块链上...`);
+      console.log(`等待广告位数量增加，确认交易成功...`);
       
       while (attempts < maxAttempts && !success) {
         attempts++;
@@ -229,21 +236,18 @@ const ManagePage: React.FC = () => {
           
           // 直接从合约获取最新数据
           const latestAdSpaces = await getCreatedAdSpaces(account.address);
+          const newAdSpaces = latestAdSpaces.filter(adSpace => !adSpace.isExample);
+          const newAdSpaceCount = newAdSpaces.length;
           
-          // 检查新获取的数据中是否包含刚创建的广告位（通过游戏ID匹配）
-          const foundNewAdSpace = latestAdSpaces.some(
-            adSpace => 
-              !adSpace.isExample && 
-              adSpace.name && 
-              adSpace.name.includes(createdGameId)
-          );
+          console.log('当前广告位数量:', newAdSpaceCount, '原广告位数量:', currentAdSpaceCount);
           
-          if (foundNewAdSpace) {
+          // 判断广告位数量是否增加
+          if (newAdSpaceCount > currentAdSpaceCount) {
             success = true;
-            console.log('成功获取到新创建的广告位数据');
+            console.log('广告位数量增加，创建成功');
             
             // 成功找到后，更新React状态，保存最新数据
-            setMyAdSpaces(latestAdSpaces.filter(adSpace => !adSpace.isExample));
+            setMyAdSpaces(newAdSpaces);
             
             // 显示成功确认消息
             message.success({ 
@@ -261,7 +265,7 @@ const ManagePage: React.FC = () => {
             // 切换到广告位展示页面
             setActiveKey('myAdSpaces');
           } else {
-            console.log('尚未检测到新创建的广告位数据，将继续重试');
+            console.log('广告位数量未增加，继续轮询');
           }
         } catch (error) {
           console.error(`第 ${attempts} 次获取广告位数据失败:`, error);

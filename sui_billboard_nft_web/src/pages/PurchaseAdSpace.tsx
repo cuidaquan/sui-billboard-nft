@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Typography, Spin, Alert, message, Button } from 'antd';
-import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { AdSpace, PurchaseAdSpaceParams } from '../types';
+import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
+import { AdSpace, PurchaseAdSpaceParams, UserRole } from '../types';
 import AdSpaceForm from '../components/adSpace/AdSpaceForm';
 import { getAdSpaceDetails, createPurchaseAdSpaceTx, getUserNFTs } from '../utils/contract';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -14,12 +14,36 @@ const PurchaseAdSpacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const account = useCurrentAccount();
+  const suiClient = useSuiClient();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   
   const [adSpace, setAdSpace] = useState<AdSpace | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(true);
+  
+  // 检查用户角色
+  useEffect(() => {
+    const checkUserRole = async () => {
+      if (!account) return;
+      
+      try {
+        // 导入auth.ts中的checkUserRole函数
+        const { checkUserRole } = await import('../utils/auth');
+        
+        // 使用SuiClient和用户地址检查用户角色
+        const role = await checkUserRole(suiClient, account.address);
+        console.log('当前用户角色:', role);
+        setUserRole(role);
+      } catch (err) {
+        console.error('检查用户角色失败:', err);
+      }
+    };
+    
+    checkUserRole();
+  }, [account, suiClient]);
   
   // 获取广告位详情
   const fetchAdSpace = async () => {
@@ -37,8 +61,43 @@ const PurchaseAdSpacePage: React.FC = () => {
       
       if (!space) {
         setError('未找到广告位或广告位不可用。如果您刚刚创建此广告位，请稍后再试。');
-      } else if (!space.available) {
+        return;
+      } 
+      
+      if (!space.available) {
         setError('此广告位已被购买，请选择其他可用广告位。');
+        return;
+      }
+      
+      // 检查用户是否有权限购买
+      if (userRole === UserRole.ADMIN) {
+        setError('管理员不能购买广告位');
+        setIsAuthorized(false);
+        return;
+      }
+      
+      // 获取creator信息并转换为小写
+      const creator = (space as any).creator || null;
+      const creatorAddress = creator ? creator.toLowerCase() : null;
+      const userAddress = account ? account.address.toLowerCase() : null;
+      
+      console.log('广告位创建者信息:', {
+        adSpaceId: space.id,
+        creator: creatorAddress,
+        userAddress: userAddress,
+        isMatch: creatorAddress === userAddress,
+        userRole
+      });
+      
+      // 如果是游戏开发者，检查是否是自己创建的广告位
+      if (userRole === UserRole.GAME_DEV && 
+          creatorAddress && 
+          userAddress && 
+          creatorAddress === userAddress) {
+        console.log('当前用户是开发者且是广告位创建者，不允许购买');
+        setError('游戏开发者不能购买自己创建的广告位');
+        setIsAuthorized(false);
+        return;
       }
     } catch (err) {
       console.error('获取广告位详情失败:', err);
@@ -48,9 +107,10 @@ const PurchaseAdSpacePage: React.FC = () => {
     }
   };
   
+  // 当用户角色或广告位ID变化时重新获取数据
   useEffect(() => {
     fetchAdSpace();
-  }, [id]);
+  }, [id, userRole, account]);
   
   const handleRefresh = () => {
     fetchAdSpace();
