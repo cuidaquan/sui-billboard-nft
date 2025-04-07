@@ -269,7 +269,9 @@ const AdSpaceDetailPage: React.FC = () => {
                     (e.target as HTMLImageElement).src = `https://via.placeholder.com/${adSpace.dimension.width}x${adSpace.dimension.height}?text=广告内容`;
                   }}
                 />
-                
+                <div className="active-badge animate-pulse">
+                  <Tag color="green">活跃中</Tag>
+                </div>
               </div>
             ) : (
               <div className="ad-space-detail-placeholder">
@@ -313,6 +315,7 @@ const AdSpaceDetailPage: React.FC = () => {
                           icon={<ShoppingCartOutlined />} 
                           size="large"
                           block
+                          className="purchase-button"
                         >
                           立即购买广告位
                         </Button>
@@ -360,7 +363,7 @@ const AdSpaceDetailPage: React.FC = () => {
             <Text style={{ marginLeft: '12px' }}>加载NFT记录...</Text>
           </div>
         ) : allNfts.length > 0 ? (
-          <Row gutter={[16, 16]}>
+          <Row gutter={[16, 16]} className="fade-in">
             {allNfts.map(nft => {
               const now = new Date();
               const leaseEnd = new Date(nft.leaseEnd);

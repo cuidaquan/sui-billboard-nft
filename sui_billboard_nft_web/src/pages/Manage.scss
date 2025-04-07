@@ -2,17 +2,110 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  position: relative;
+  
+  // 粒子背景动画
+  .particles-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+    
+    .particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 400px;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(78, 99, 255, 0.03) 1px, transparent 5px),
+        radial-gradient(circle at 45% 30%, rgba(110, 86, 207, 0.03) 1px, transparent 6px),
+        radial-gradient(circle at 75% 20%, rgba(78, 99, 255, 0.03) 1px, transparent 8px),
+        radial-gradient(circle at 85% 45%, rgba(110, 86, 207, 0.02) 1px, transparent 10px);
+      animation: float 20s infinite linear;
+    }
+  }
+  
+  // 添加装饰背景
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100px;
+    right: -100px;
+    height: 300px;
+    background-image: 
+      radial-gradient(circle at 50% 50%, rgba(78, 99, 255, 0.03) 0%, transparent 80%);
+    z-index: -1;
+    pointer-events: none;
+  }
   
   .section-title {
-    margin-bottom: 30px;
+    margin-bottom: 32px;
+    position: relative;
+    z-index: 1;
+    
+    h2 {
+      font-weight: 700;
+      margin-bottom: 8px;
+      position: relative;
+      display: inline-block;
+      
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 0;
+        width: 60px;
+        height: 3px;
+        background: var(--primary-gradient);
+        border-radius: 4px;
+      }
+    }
+    
+    p {
+      color: var(--text-medium);
+      font-size: 16px;
+    }
   }
   
   .manage-tabs {
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: var(--background-content);
+    padding: 24px;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--box-shadow-sm);
     margin-top: 20px;
+    border: none;
+    overflow: hidden;
+    animation: fadeIn var(--animation-speed-normal) ease-in-out;
+    
+    .ant-tabs-nav {
+      margin-bottom: 32px;
+      
+      &::before {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      
+      .ant-tabs-tab {
+        padding: 12px 0;
+        margin: 0 24px 0 0;
+        font-weight: 500;
+        
+        &.ant-tabs-tab-active .ant-tabs-tab-btn {
+          color: var(--primary);
+        }
+      }
+      
+      .ant-tabs-ink-bar {
+        background: var(--primary-gradient);
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+      }
+    }
   }
   
   .form-container {
@@ -20,58 +113,111 @@
     margin: 0 auto;
     
     .error-alert {
-      margin-bottom: 20px;
+      margin-bottom: 24px;
+      border-radius: var(--border-radius-md);
+      overflow: hidden;
+      box-shadow: var(--box-shadow-sm);
     }
     
     .create-form {
-      margin-top: 20px;
+      margin-top: 24px;
+      animation: slideUp var(--animation-speed-normal) ease-in-out;
+      
+      .ant-form-item-label > label {
+        font-weight: 500;
+        color: var(--text-dark);
+      }
+      
+      .ant-input,
+      .ant-input-number,
+      .ant-select-selector {
+        border-radius: var(--border-radius-md);
+        border-color: #e0e6f5;
+        transition: all var(--animation-speed-fast);
+        
+        &:hover, &:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(78, 99, 255, 0.1);
+        }
+      }
       
       .submit-button {
         width: 100%;
+        height: 44px;
+        border-radius: var(--border-radius-md);
+        font-weight: 600;
+        background: var(--primary-gradient);
+        border: none;
+        box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
+        transition: all var(--animation-speed-normal);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
+          background: var(--primary-gradient-hover);
+        }
       }
     }
-  }
-  
-  .register-form {
-    margin-top: 20px;
   }
   
   .register-dev-card {
     margin-bottom: 30px;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--box-shadow-sm);
+    border: none;
+    overflow: hidden;
+    animation: fadeIn var(--animation-speed-normal) ease-in-out;
     
     .ant-card-head {
-      border-bottom: 1px solid #f0f0f0;
-      padding: 0 20px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 0 24px;
+      background: linear-gradient(145deg, #ffffff, #f5f7ff);
       
       .ant-card-head-title {
         font-size: 16px;
         padding: 16px 0;
+        font-weight: 600;
+        color: var(--text-dark);
       }
     }
     
     .ant-card-body {
-      padding: 20px;
+      padding: 24px;
     }
     
     .register-form {
       margin-top: 0;
       
-      .ant-form-item-label {
+      .ant-form-item-label > label {
         font-weight: 500;
+        color: var(--text-dark);
       }
       
       .ant-input {
-        height: 40px;
-        border-radius: 4px;
+        height: 44px;
+        border-radius: var(--border-radius-md);
+        border-color: #e0e6f5;
+        
+        &:hover, &:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(78, 99, 255, 0.1);
+        }
       }
       
       .submit-button {
         width: 100%;
-        height: 40px;
-        border-radius: 4px;
-        font-weight: 500;
+        height: 44px;
+        border-radius: var(--border-radius-md);
+        font-weight: 600;
+        background: var(--primary-gradient);
+        border: none;
+        box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
+          background: var(--primary-gradient-hover);
+        }
       }
     }
   }
@@ -79,12 +225,18 @@
   .connect-wallet-prompt {
     max-width: 600px;
     margin: 40px auto;
-    margin-top: 40px;
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+    animation: fadeIn var(--animation-speed-normal) ease-in-out;
+    box-shadow: var(--box-shadow-sm);
   }
   
   .coming-soon {
     text-align: center;
-    padding: 50px 0;
+    padding: 64px 0;
+    color: var(--text-medium);
+    font-size: 16px;
+    animation: pulse 2s infinite ease-in-out;
   }
   
   .dev-list-item {
@@ -103,29 +255,34 @@
   }
   
   .registered-devs-section {
-    margin-top: 30px;
+    margin-top: 32px;
+    animation: slideUp var(--animation-speed-normal) ease-in-out;
     
     h4 {
       margin-bottom: 16px;
+      font-weight: 600;
+      color: var(--text-dark);
+      font-size: 18px;
     }
     
     .registered-devs-list {
-      background: #fff;
-      border-radius: 8px;
-      margin-top: 15px;
+      background: var(--background-content);
+      border-radius: var(--border-radius-lg);
+      margin-top: 16px;
       overflow: hidden;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      box-shadow: var(--box-shadow-sm);
+      border: 1px solid rgba(0, 0, 0, 0.06);
       
       .dev-address-item {
-        padding: 12px 16px;
-        transition: all 0.3s ease;
+        padding: 16px;
+        transition: all var(--animation-speed-fast);
         
         &:hover {
-          background-color: rgba(24, 144, 255, 0.05);
+          background-color: rgba(78, 99, 255, 0.05);
         }
         
         &:not(:last-child) {
-          border-bottom: 1px solid #f0f0f0;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
         }
         
         .address-content {
@@ -136,17 +293,18 @@
           
           .address-text {
             flex: 1;
-            font-family: monospace;
+            font-family: 'Roboto Mono', monospace;
             word-break: break-all;
             overflow: hidden;
             text-overflow: ellipsis;
             padding-right: 16px;
             font-size: 14px;
-            color: #666;
+            color: var(--text-medium);
             cursor: pointer;
+            transition: color var(--animation-speed-fast);
             
             &:hover {
-              color: #1890ff;
+              color: var(--primary);
             }
           }
           
@@ -154,45 +312,85 @@
             display: flex;
             gap: 8px;
             flex-shrink: 0;
+            
+            .ant-btn {
+              border-radius: var(--border-radius-md);
+              
+              &.ant-btn-primary {
+                background: var(--primary);
+                border: none;
+                
+                &:hover {
+                  background: var(--primary-light);
+                }
+              }
+              
+              &.ant-btn-danger {
+                background: #ff4d4f;
+                border: none;
+                color: white;
+                
+                &:hover {
+                  background: #ff7875;
+                }
+              }
+            }
           }
         }
       }
     }
     
     .ant-empty {
-      padding: 32px 0;
+      padding: 48px 0;
       background: #f9f9f9;
-      border-radius: 8px;
-      margin-top: 15px;
+      border-radius: var(--border-radius-lg);
+      margin-top: 16px;
+      
+      .ant-empty-image {
+        height: 80px;
+      }
+      
+      .ant-empty-description {
+        color: var(--text-medium);
+        font-size: 16px;
+      }
     }
   }
   
   // 我的广告位列表样式
   .my-ad-spaces-container {
     padding: 0 10px;
+    animation: fadeIn var(--animation-speed-normal) ease-in-out;
     
     .loading-container {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 60px 0;
+      padding: 64px 0;
       
       p {
-        margin-top: 15px;
-        color: #666;
+        margin-top: 16px;
+        color: var(--text-medium);
+        font-size: 16px;
       }
     }
     
     .ad-spaces-grid {
-      margin-top: 20px;
+      margin-top: 24px;
       
       .ad-space-card {
-        margin-bottom: 15px;
-        transition: transform 0.3s;
+        margin-bottom: 24px;
+        transition: all var(--animation-speed-normal);
+        border-radius: var(--border-radius-lg);
+        overflow: hidden;
+        box-shadow: var(--box-shadow-sm);
+        border: none;
+        animation: slideUp var(--animation-speed-normal) ease-in-out;
         
         &:hover {
           transform: translateY(-5px);
+          box-shadow: var(--box-shadow-md);
         }
         
         .card-cover {
@@ -202,31 +400,46 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          background-color: #f5f5f5;
+          background: linear-gradient(135deg, rgba(78, 99, 255, 0.9), rgba(110, 86, 207, 0.85));
+          
+          &::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(0deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 50%);
+            pointer-events: none;
+          }
           
           .ad-space-image {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transition: transform var(--animation-speed-normal);
           }
           
           .availability-badge {
             position: absolute;
             top: 10px;
             right: 10px;
+            z-index: 1;
             
             span {
-              padding: 4px 8px;
-              border-radius: 4px;
+              padding: 4px 12px;
+              border-radius: 12px;
               font-size: 12px;
+              font-weight: 600;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
               
               &.available {
-                background-color: #52c41a;
+                background: linear-gradient(135deg, #52c41a, #389e0d);
                 color: white;
               }
               
               &.unavailable {
-                background-color: #f5222d;
+                background: linear-gradient(135deg, #ff4d4f, #cf1322);
                 color: white;
               }
             }
@@ -234,35 +447,169 @@
         }
         
         .ant-card-body {
-          padding: 16px;
+          padding: 20px;
           
           .ant-card-meta-title {
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             white-space: normal;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
             -webkit-line-clamp: 1;
             -webkit-box-orient: vertical;
+            font-weight: 600;
+            color: var(--text-dark);
           }
           
           .ad-space-info {
-            margin-bottom: 12px;
-            font-size: 12px;
-            line-height: 1.5;
+            margin-bottom: 16px;
+            
+            .info-item {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 8px;
+              color: var(--text-medium);
+              
+              .label {
+                font-weight: 500;
+                color: var(--text-medium);
+              }
+              
+              .value {
+                color: var(--text-dark);
+                font-weight: 500;
+                
+                &.price {
+                  color: var(--primary);
+                  font-weight: 600;
+                }
+              }
+            }
           }
           
-          .ad-space-actions {
+          .action-buttons {
             display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
+            gap: 8px;
             
-            .action-button {
+            .ant-btn {
               flex: 1;
+              border-radius: var(--border-radius-md);
+              height: 36px;
+              font-weight: 500;
               
-              &:not(:last-child) {
-                margin-right: 8px;
+              &.edit-button {
+                color: var(--primary);
+                border-color: var(--primary);
+                
+                &:hover {
+                  color: var(--primary-light);
+                  border-color: var(--primary-light);
+                  background: rgba(78, 99, 255, 0.05);
+                }
               }
+              
+              &.delete-button {
+                color: #ff4d4f;
+                border-color: #ff4d4f;
+                
+                &:hover {
+                  color: #ff7875;
+                  border-color: #ff7875;
+                  background: rgba(255, 77, 79, 0.05);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    .empty-container {
+      text-align: center;
+      padding: 64px 0;
+      background: #f9f9f9;
+      border-radius: var(--border-radius-lg);
+      margin-top: 16px;
+      
+      .empty-icon {
+        font-size: 48px;
+        color: var(--text-light);
+        margin-bottom: 16px;
+      }
+      
+      .empty-text {
+        color: var(--text-dark);
+        font-size: 18px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+      
+      .empty-description {
+        color: var(--text-medium);
+        margin-bottom: 24px;
+      }
+      
+      .create-button {
+        height: 44px;
+        padding: 0 24px;
+        border-radius: var(--border-radius-md);
+        font-weight: 600;
+        background: var(--primary-gradient);
+        border: none;
+        box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
+          background: var(--primary-gradient-hover);
+        }
+      }
+    }
+  }
+  
+  // 价格更新模态框
+  .price-update-modal {
+    .ant-modal-content {
+      border-radius: var(--border-radius-lg);
+      overflow: hidden;
+      
+      .ant-modal-header {
+        background: linear-gradient(145deg, #ffffff, #f5f7ff);
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        
+        .ant-modal-title {
+          font-weight: 600;
+          color: var(--text-dark);
+        }
+      }
+      
+      .ant-modal-body {
+        padding: 24px;
+        
+        .price-form-item {
+          margin-bottom: 24px;
+          
+          .ant-form-item-label > label {
+            font-weight: 500;
+            color: var(--text-dark);
+          }
+        }
+      }
+      
+      .ant-modal-footer {
+        border-top: 1px solid rgba(0, 0, 0, 0.06);
+        padding: 16px 24px;
+        
+        .ant-btn {
+          border-radius: var(--border-radius-md);
+          height: 36px;
+          
+          &.ant-btn-primary {
+            background: var(--primary);
+            border: none;
+            
+            &:hover {
+              background: var(--primary-light);
             }
           }
         }
@@ -364,4 +711,33 @@
       color: #666;
     }
   }
+}
+
+// 响应式调整
+@media (max-width: 768px) {
+  .manage-page {
+    .manage-tabs {
+      padding: 16px;
+      
+      .ant-tabs-nav {
+        .ant-tabs-tab {
+          margin: 0 16px 0 0;
+        }
+      }
+    }
+    
+    .my-ad-spaces-container {
+      .ad-spaces-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+  }
+}
+
+// 动画定义
+@keyframes float {
+  0% { background-position: 0 0; }
+  100% { background-position: 50px 50px; }
 }

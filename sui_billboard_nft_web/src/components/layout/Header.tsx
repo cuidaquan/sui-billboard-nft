@@ -292,16 +292,16 @@ const AppHeader: React.FC = () => {
       <div className="logo">
         <Title level={3}>
           <Link to="/">
-            <PictureOutlined /> 链上广告牌
+            <PictureOutlined />
+            链上广告牌
           </Link>
         </Title>
       </div>
       
       <Menu
-        theme="dark"
+        className="nav-menu"
         mode="horizontal"
         selectedKeys={[location.pathname]}
-        className="nav-menu"
         items={[
           {
             key: '/',
@@ -313,11 +313,14 @@ const AppHeader: React.FC = () => {
             icon: <AppstoreOutlined />,
             label: <Link to="/ad-spaces">广告位</Link>,
           },
+          // 只有已连接钱包且不是管理员时显示我的NFT
+          ...(currentAccount && userRole !== UserRole.ADMIN ? [
           {
             key: '/my-nfts',
             icon: <PictureOutlined />,
             label: <Link to="/my-nfts">我的NFT</Link>,
-          },
+          }
+          ] : []),
           // 只有管理员和游戏开发者才显示管理中心
           ...(userRole === UserRole.ADMIN || userRole === UserRole.GAME_DEV ? [
           {
@@ -329,112 +332,94 @@ const AppHeader: React.FC = () => {
         ]}
       />
       
-      <Space className="connect-wallet">
+      <div className="connect-wallet">
         {currentAccount ? (
           <Dropdown menu={{ items: walletMenuItems }} placement="bottomRight">
-          <Button 
-            type="primary"
-            style={{
-              backgroundColor: '#1677ff',
-              color: 'white',
-              borderRadius: '4px',
-              padding: '0 16px',
-              height: '32px',
-              fontWeight: 'bold',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-            }}
-          >
-              <Avatar size="small" icon={<WalletOutlined />} style={{ backgroundColor: '#096dd9' }} />
-              {getShortAddress(currentAccount.address)}
-          </Button>
+            <div className="wallet-info">
+              <span className="wallet-address" onClick={copyAddress}>
+                {getShortAddress(currentAccount.address)}
+                <CopyOutlined />
+              </span>
+            </div>
           </Dropdown>
         ) : (
           <Button 
-            type="primary"
-            onClick={connectWalletHandler}
+            className="connect-button"
+            onClick={connectWalletHandler} 
             loading={isConnecting}
-            style={{
-              backgroundColor: '#1677ff',
-              color: 'white',
-              borderRadius: '4px',
-              padding: '0 16px',
-              height: '32px',
-              fontWeight: 'bold',
-              border: 'none'
-            }}
             icon={<WalletOutlined />}
           >
             连接钱包
           </Button>
         )}
-        
-        <Modal
-          title="连接钱包"
-          open={isModalVisible}
-          onCancel={() => setIsModalVisible(false)}
-          footer={null}
-          centered
-        >
-          <p>请选择您想要连接的钱包：</p>
-          <div style={{ textAlign: 'center', margin: '20px 0' }}>
-            {wallets.length > 0 ? (
-              <div>
-                {wallets.map((wallet) => (
-                  <Button 
-                    key={wallet.name}
-                    type="primary"
-                    onClick={() => connectWithWallet(wallet)}
-                    style={{
-                      backgroundColor: '#1677ff',
-                      color: 'white',
-                      borderRadius: '4px',
-                      padding: '0 16px',
-                      height: '40px',
-                      fontWeight: 'bold',
-                      fontSize: '16px',
-                      width: '200px',
-                      margin: '5px 0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    {wallet.name}
-                  </Button>
-                ))}
+      </div>
+      
+      {/* 添加科技感装饰元素 */}
+      <div className="header-decoration"></div>
+      
+      <Modal
+        title="选择钱包"
+        open={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        footer={null}
+        centered
+      >
+        <p>请选择您想要连接的钱包：</p>
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          {wallets.length > 0 ? (
+            <div>
+              {wallets.map((wallet) => (
+                <Button 
+                  key={wallet.name}
+                  type="primary"
+                  onClick={() => connectWithWallet(wallet)}
+                  style={{
+                    backgroundColor: '#1677ff',
+                    color: 'white',
+                    borderRadius: '4px',
+                    padding: '0 16px',
+                    height: '40px',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    width: '200px',
+                    margin: '5px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {wallet.name}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <div>
+              <p>未检测到可用的钱包扩展。</p>
+              <p>请安装以下钱包之一：</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+                <Button 
+                  href="https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil" 
+                  target="_blank"
+                  style={{ width: '200px', margin: '0 auto' }}
+                >
+                  安装 Sui Wallet
+                </Button>
+                <Button 
+                  href="https://chrome.google.com/webstore/detail/ethos-sui-wallet/mcbigmjiafegjnnogedioegffbooigli" 
+                  target="_blank"
+                  style={{ width: '200px', margin: '0 auto' }}
+                >
+                  安装 Ethos Wallet
+                </Button>
               </div>
-            ) : (
-              <div>
-                <p>未检测到可用的钱包扩展。</p>
-                <p>请安装以下钱包之一：</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
-                  <Button 
-                    href="https://chrome.google.com/webstore/detail/sui-wallet/opcgpfmipidbgpenhmajoajpbobppdil" 
-                    target="_blank"
-                    style={{ width: '200px', margin: '0 auto' }}
-                  >
-                    安装 Sui Wallet
-                  </Button>
-              <Button 
-                    href="https://chrome.google.com/webstore/detail/ethos-sui-wallet/mcbigmjiafegjnnogedioegffbooigli" 
-                    target="_blank"
-                    style={{ width: '200px', margin: '0 auto' }}
-                  >
-                    安装 Ethos Wallet
-              </Button>
-                </div>
-              </div>
-            )}
-          </div>
-          <p style={{ marginTop: '20px', fontSize: '13px', color: '#888' }}>
-            连接钱包后，您可以浏览和购买NFT、管理您的资产，并参与平台生态系统。
-          </p>
-        </Modal>
-      </Space>
+            </div>
+          )}
+        </div>
+        <p style={{ marginTop: '20px', fontSize: '13px', color: '#888' }}>
+          连接钱包后，您可以浏览和购买NFT、管理您的资产，并参与平台生态系统。
+        </p>
+      </Modal>
     </Header>
   );
 };

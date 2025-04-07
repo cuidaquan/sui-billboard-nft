@@ -261,6 +261,10 @@ const PurchaseAdSpacePage: React.FC = () => {
         <Paragraph>填写以下信息以购买广告位。</Paragraph>
       </div>
       
+      {/* 添加装饰元素 */}
+      <div className="decoration-element top-right"></div>
+      <div className="decoration-element bottom-left"></div>
+      
       {loading ? (
         <div className="loading-container">
           <Spin size="large" />
@@ -292,11 +296,13 @@ const PurchaseAdSpacePage: React.FC = () => {
           </div>
         </div>
       ) : adSpace ? (
-        <AdSpaceForm 
-          adSpace={adSpace}
-          onSubmit={handleSubmit}
-          isLoading={submitting}
-        />
+        <div className="fade-in">
+          <AdSpaceForm 
+            adSpace={adSpace}
+            onSubmit={handleSubmit}
+            isLoading={submitting}
+          />
+        </div>
       ) : (
         <div className="error-container">
           <Alert 

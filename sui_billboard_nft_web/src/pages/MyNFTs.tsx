@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Tabs, Empty, Spin, Alert, Button } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Typography, Tabs, Empty, Spin, Alert, Button, Badge } from 'antd';
+import { PlusOutlined, InboxOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { BillboardNFT } from '../types';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { BillboardNFT, UserRole } from '../types';
 import NFTCard from '../components/nft/NFTCard';
 import { getUserNFTs } from '../utils/contract';
 import './MyNFTs.scss';
@@ -17,13 +17,36 @@ const MyNFTsPage: React.FC = () => {
   const [pendingNfts, setPendingNfts] = useState<BillboardNFT[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
   
   const account = useCurrentAccount();
+  const suiClient = useSuiClient();
+  
+  // 检查用户角色
+  useEffect(() => {
+    const checkRole = async () => {
+      if (!account) return;
+      
+      try {
+        // 导入auth.ts中的checkUserRole函数
+        const { checkUserRole } = await import('../utils/auth');
+        
+        // 使用SuiClient和用户地址检查用户角色
+        const role = await checkUserRole(suiClient, account.address);
+        console.log('当前用户角色:', role);
+        setUserRole(role);
+      } catch (err) {
+        console.error('检查用户角色失败:', err);
+      }
+    };
+    
+    checkRole();
+  }, [account, suiClient]);
   
   // 加载用户的NFT
   useEffect(() => {
     const fetchNFTs = async () => {
-      if (!account) {
+      if (!account || userRole === UserRole.ADMIN) {
         setLoading(false);
         return;
       }
@@ -69,18 +92,27 @@ const MyNFTsPage: React.FC = () => {
     };
     
     fetchNFTs();
-  }, [account]);
+  }, [account, userRole, suiClient]);
   
   // 创建标签页内容
   const getTabItems = () => {
     return [
       {
         key: 'active',
-        label: `活跃NFT (${activeNfts.length})`,
+        label: (
+          <span className="tab-label">
+            <CheckCircleOutlined />
+            活跃NFT <Badge count={activeNfts.length} style={{ backgroundColor: 'var(--primary)' }} />
+          </span>
+        ),
         children: activeNfts.length === 0 ? (
-          <Empty description="没有活跃的NFT" />
+          <Empty 
+            description="没有活跃的NFT" 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            className="empty-tab-content"
+          />
         ) : (
-          <div className="grid">
+          <div className="grid fade-in">
             {activeNfts.map(nft => (
               <NFTCard key={nft.id} nft={nft} />
             ))}
@@ -89,11 +121,20 @@ const MyNFTsPage: React.FC = () => {
       },
       {
         key: 'pending',
-        label: `待展示 (${pendingNfts.length})`,
+        label: (
+          <span className="tab-label">
+            <ClockCircleOutlined />
+            待展示 <Badge count={pendingNfts.length} style={{ backgroundColor: 'var(--secondary)' }} />
+          </span>
+        ),
         children: pendingNfts.length === 0 ? (
-          <Empty description="没有待展示的NFT" />
+          <Empty 
+            description="没有待展示的NFT" 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            className="empty-tab-content"
+          />
         ) : (
-          <div className="grid">
+          <div className="grid fade-in">
             {pendingNfts.map(nft => (
               <NFTCard key={nft.id} nft={nft} />
             ))}
@@ -102,11 +143,20 @@ const MyNFTsPage: React.FC = () => {
       },
       {
         key: 'expired',
-        label: `过期NFT (${expiredNfts.length})`,
+        label: (
+          <span className="tab-label">
+            <InboxOutlined />
+            过期NFT <Badge count={expiredNfts.length} style={{ backgroundColor: '#999' }} />
+          </span>
+        ),
         children: expiredNfts.length === 0 ? (
-          <Empty description="没有过期的NFT" />
+          <Empty 
+            description="没有过期的NFT" 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            className="empty-tab-content"
+          />
         ) : (
-          <div className="grid">
+          <div className="grid fade-in">
             {expiredNfts.map(nft => (
               <NFTCard key={nft.id} nft={nft} />
             ))}
@@ -136,22 +186,43 @@ const MyNFTsPage: React.FC = () => {
       </div>
     );
   }
+  
+  // 如果用户是管理员，显示无权限提示
+  if (userRole === UserRole.ADMIN) {
+    return (
+      <div className="my-nfts-page">
+        <div className="section-title">
+          <Title level={2}>我的广告牌NFT</Title>
+          <Paragraph>查看并管理您拥有的广告牌NFT。</Paragraph>
+        </div>
+        
+        <div className="connect-wallet-prompt">
+          <Alert
+            message="管理员账户"
+            description="管理员账户不能持有NFT，请使用普通用户账户。"
+            type="warning"
+            showIcon
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="my-nfts-page">
       <div className="section-title">
         <Title level={2}>我的广告牌NFT</Title>
-        <Paragraph>查看并管理您拥有的广告牌NFT。</Paragraph>
+        <Paragraph>查看并管理您拥有的<span className="gradient-text">数字广告位</span>资产。</Paragraph>
       </div>
       
       {loading ? (
         <div className="loading-container">
           <Spin size="large" />
-          <p>加载您的NFT...</p>
+          <p>正在加载您的NFT资产...</p>
         </div>
       ) : error ? (
         <Alert 
-          message="错误" 
+          message="加载错误" 
           description={error} 
           type="error" 
           showIcon 
@@ -160,11 +231,16 @@ const MyNFTsPage: React.FC = () => {
       ) : nfts.length === 0 ? (
         <div className="empty-state">
           <Empty 
-            description="您还没有拥有任何广告牌NFT" 
+            description={
+              <span>
+                您还没有拥有任何广告牌NFT<br/>
+                <small style={{ color: 'var(--text-light)' }}>浏览可用的广告位并获取您的第一个NFT</small>
+              </span>
+            } 
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           />
           <div className="empty-actions">
-            <Button type="primary" icon={<PlusOutlined />}>
+            <Button type="primary" size="large" icon={<PlusOutlined />} className="ant-btn-gradient">
               <Link to="/ad-spaces">浏览广告位</Link>
             </Button>
           </div>
@@ -174,6 +250,7 @@ const MyNFTsPage: React.FC = () => {
           defaultActiveKey="active" 
           className="nft-tabs"
           items={getTabItems()}
+          animated={{ inkBar: true, tabPane: true }}
         />
       )}
     </div>

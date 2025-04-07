@@ -1,15 +1,157 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm, Row, Col, Spin, Tooltip } from 'antd';
+import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Alert, Card, List, Empty, Modal, Popconfirm, Row, Col, Spin, Tooltip, Tag } from 'antd';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams, AdSpace } from '../types';
-import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces, updateAdSpacePriceTx, deleteAdSpaceTx, getAdSpaceById } from '../utils/contract';
+import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams, AdSpace, BillboardNFT } from '../types';
+import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces, updateAdSpacePriceTx, deleteAdSpaceTx, getAdSpaceById, getNFTDetails } from '../utils/contract';
 import { CONTRACT_CONFIG } from '../config/config';
 import './Manage.scss';
-import { ReloadOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined, AppstoreOutlined, DollarOutlined, DeleteOutlined, FormOutlined, UserAddOutlined, UserDeleteOutlined, TeamOutlined, ColumnWidthOutlined } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
+
+// 粒子背景组件
+const ParticlesBackground = () => (
+  <div className="particles-background">
+    <div className="particles"></div>
+  </div>
+);
+
+// 广告位卡片组件
+const AdSpaceItem: React.FC<{
+  adSpace: AdSpace;
+  onUpdatePrice: (adSpace: AdSpace) => void;
+  onDeleteAdSpace: (adSpaceId: string) => void;
+  deleteLoading: boolean;
+}> = ({ adSpace, onUpdatePrice, onDeleteAdSpace, deleteLoading }) => {
+  const [activeNft, setActiveNft] = useState<BillboardNFT | null>(null);
+  const [loadingNft, setLoadingNft] = useState<boolean>(false);
+
+  // 获取活跃NFT内容
+  useEffect(() => {
+    const fetchNftData = async () => {
+      // 如果广告位有NFT ID列表且不为空
+      if (adSpace.nft_ids && adSpace.nft_ids.length > 0) {
+        try {
+          setLoadingNft(true);
+          console.log(`开始获取广告位[${adSpace.id}]的NFT信息，NFT IDs:`, adSpace.nft_ids);
+          
+          const now = new Date();
+          
+          // 遍历所有NFT
+          for (const nftId of adSpace.nft_ids) {
+            console.log(`正在检查NFT[${nftId}]`);
+            const nftDetails = await getNFTDetails(nftId);
+            
+            if (nftDetails) {
+              const leaseStart = new Date(nftDetails.leaseStart);
+              const leaseEnd = new Date(nftDetails.leaseEnd);
+              
+              // 只有当前时间在租期内的NFT才被视为活跃
+              if (now >= leaseStart && now <= leaseEnd) {
+                console.log(`找到活跃NFT[${nftId}]，将显示在卡片中, 内容URL:`, nftDetails.contentUrl);
+                setActiveNft(nftDetails);
+                break;
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`获取广告位[${adSpace.id}]的NFT失败:`, err);
+        } finally {
+          setLoadingNft(false);
+        }
+      } else {
+        console.log(`广告位[${adSpace.id}]没有关联的NFT ID`);
+      }
+    };
+    
+    fetchNftData();
+  }, [adSpace.id, adSpace.nft_ids]);
+
+  return (
+    <Col xs={24} sm={12} md={8} key={adSpace.id}>
+      <Card className="ad-space-card">
+        <div className="card-cover">
+          {loadingNft ? (
+            <div className="loading-container">
+              <Spin />
+            </div>
+          ) : activeNft && activeNft.contentUrl ? (
+            <div className="active-nft-cover">
+              <img 
+                src={activeNft.contentUrl} 
+                alt={activeNft.brandName || '广告内容'} 
+                className="ad-space-image"
+                onError={(e) => {
+                  console.error(`NFT图片加载失败:`, activeNft.contentUrl);
+                  // 图片加载失败时，显示占位符
+                  (e.target as HTMLImageElement).src = `https://via.placeholder.com/${adSpace.dimension.width}x${adSpace.dimension.height}?text=广告内容`;
+                }}
+              />
+              <Tag className="active-tag" color="green">活跃中</Tag>
+            </div>
+          ) : (
+            <div className="empty-ad-space-placeholder">
+              <ColumnWidthOutlined />
+              <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
+              <Text>等待广告内容</Text>
+            </div>
+          )}
+          <div className="availability-badge">
+            <span className={adSpace.available ? "available" : "unavailable"}>
+              {adSpace.available ? "可购买" : "已占用"}
+            </span>
+          </div>
+        </div>
+        <Card.Meta
+          title={adSpace.name}
+          className="ad-space-meta"
+        />
+        <div className="ad-space-info">
+          <div className="info-item">
+            <span className="label">位置:</span>
+            <span className="value">{adSpace.location}</span>
+          </div>
+          <div className="info-item">
+            <span className="label">尺寸:</span>
+            <span className="value">{`${adSpace.dimension.width}x${adSpace.dimension.height}`}</span>
+          </div>
+          <div className="info-item">
+            <span className="label">价格:</span>
+            <span className="value price">
+              {parseFloat((Number(adSpace.price) / 1000000000).toFixed(9))} SUI/天
+            </span>
+          </div>
+        </div>
+        <div className="action-buttons">
+          <Button 
+            className="edit-button"
+            onClick={() => onUpdatePrice(adSpace)}
+            icon={<DollarOutlined />}
+          >
+            更改价格
+          </Button>
+          <Popconfirm
+            title="确定要删除此广告位吗?"
+            description="删除后无法恢复，如有活跃NFT将无法删除"
+            onConfirm={() => onDeleteAdSpace(adSpace.id)}
+            okText="确定"
+            cancelText="取消"
+            okButtonProps={{ loading: deleteLoading }}
+          >
+            <Button
+              className="delete-button"
+              icon={<DeleteOutlined />}
+            >
+              删除
+            </Button>
+          </Popconfirm>
+        </div>
+      </Card>
+    </Col>
+  );
+};
 
 const ManagePage: React.FC = () => {
   const [adSpaceForm] = Form.useForm();
@@ -781,20 +923,143 @@ const ManagePage: React.FC = () => {
     }
   };
 
-  // 如果用户未连接钱包，显示提示信息
+  // 渲染空广告位状态
+  const renderEmptyAdSpaces = () => (
+    <div className="empty-container">
+      <AppstoreOutlined className="empty-icon" />
+      <div className="empty-text">暂无广告位</div>
+      <div className="empty-description">创建您的第一个广告位，开始赚取SUI代币</div>
+      <Button
+        type="primary"
+        className="create-button"
+        onClick={() => setActiveKey('create')}
+        icon={<PlusOutlined />}
+      >
+        创建广告位
+      </Button>
+    </div>
+  );
+
+  // 渲染我的广告位列表
+  const renderMyAdSpaces = () => {
+    if (loadingAdSpaces) {
+      return (
+        <div className="loading-container">
+          <Spin size="large" />
+          <p>正在加载您的广告位资产...</p>
+        </div>
+      );
+    }
+
+    if (myAdSpaces.length === 0) {
+      return renderEmptyAdSpaces();
+    }
+
+    return (
+      <Row gutter={[24, 24]} className="ad-spaces-grid">
+        {myAdSpaces.map((adSpace) => (
+          <AdSpaceItem 
+            key={adSpace.id}
+            adSpace={adSpace}
+            onUpdatePrice={handleUpdatePrice}
+            onDeleteAdSpace={handleDeleteAdSpace}
+            deleteLoading={deleteLoading}
+          />
+        ))}
+      </Row>
+    );
+  };
+
+  // 渲染已注册开发者列表
+  const renderRegisteredDevs = () => {
+    if (registeredDevs.length === 0) {
+      return <Empty description="暂无注册的游戏开发者" />;
+    }
+
+    return (
+      <List
+        className="registered-devs-list"
+        itemLayout="horizontal"
+        dataSource={registeredDevs}
+        renderItem={(item) => (
+          <List.Item className="dev-address-item">
+            <div className="address-content">
+              <Text
+                className="address-text"
+                copyable={{ tooltips: ['复制地址', '已复制!'] }}
+                onClick={() => window.open(`https://explorer.sui.io/address/${item}`, '_blank')}
+              >
+                {item}
+              </Text>
+              <div className="button-group">
+                <Tooltip title="在Explorer中查看">
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={() => window.open(`https://explorer.sui.io/address/${item}`, '_blank')}
+                  >
+                    查看
+                  </Button>
+                </Tooltip>
+                <Popconfirm
+                  title="确定要移除此开发者吗?"
+                  description="移除后，该开发者将无法再创建广告位"
+                  onConfirm={() => handleRemoveGameDev(item)}
+                  okText="确定"
+                  cancelText="取消"
+                >
+                  <Button
+                    size="small"
+                    danger
+                  >
+                    移除
+                  </Button>
+                </Popconfirm>
+              </div>
+            </div>
+          </List.Item>
+        )}
+      />
+    );
+  };
+
+  // 如果未连接钱包，显示提示
   if (!account) {
     return (
       <div className="manage-page">
+        <ParticlesBackground />
         <div className="section-title">
-          <Title level={2}>管理中心</Title>
-          <Paragraph>创建和管理您的广告位。</Paragraph>
+          <Title level={2}>管理控制台</Title>
+          <Paragraph>使用此页面管理您的区块链广告资产和账户权限</Paragraph>
         </div>
         
         <div className="connect-wallet-prompt">
           <Alert
             message="请连接钱包"
-            description="您需要连接钱包才能使用管理功能。"
+            description="您需要连接钱包才能访问管理控制台功能。"
             type="info"
+            showIcon
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 如果用户不是游戏开发者或管理员，显示无权限提示
+  if (userRole !== UserRole.GAME_DEV && userRole !== UserRole.ADMIN) {
+    return (
+      <div className="manage-page">
+        <ParticlesBackground />
+        <div className="section-title">
+          <Title level={2}>管理控制台</Title>
+          <Paragraph>使用此页面管理您的区块链广告资产和账户权限</Paragraph>
+        </div>
+        
+        <div className="connect-wallet-prompt">
+          <Alert
+            message="权限不足"
+            description="只有注册的游戏开发者或管理员才能访问管理控制台功能。"
+            type="warning"
             showIcon
           />
         </div>
@@ -804,369 +1069,207 @@ const ManagePage: React.FC = () => {
 
   return (
     <div className="manage-page">
+      <ParticlesBackground />
       <div className="section-title">
-        <Title level={2}>管理中心</Title>
-        <Paragraph>创建和管理您的广告位。</Paragraph>
+        <Title level={2}>管理控制台</Title>
+        <Paragraph>使用此页面管理您的<span className="gradient-text">广告资产</span>和账户权限</Paragraph>
       </div>
       
-      <Tabs activeKey={activeKey} onChange={handleTabChange} className="manage-tabs">
-        {userRole === UserRole.ADMIN && (
-          <TabPane tab="开发者管理" key="devManage">
-            <div className="form-container">
-              <Title level={4}>游戏开发者管理</Title>
-              <Paragraph>
-                作为平台管理员，您可以在此注册新的游戏开发者。
-              </Paragraph>
-              
-              {error && (
-                <Alert 
-                  message="错误" 
-                  description={error} 
-                  type="error" 
-                  showIcon 
-                  className="error-alert"
-                  closable
-                  onClose={() => setError(null)}
-                />
-              )}
-              
-              <Card title="注册新开发者" className="register-dev-card">
-                <Form
-                  form={devRegisterForm}
-                  layout="vertical"
-                  onFinish={handleRegisterGameDev}
-                  className="register-form"
-                >
-                  <Form.Item
-                    name="devAddress"
-                    label="开发者钱包地址"
-                    rules={[{ required: true, message: '请输入开发者钱包地址' }]}
-                  >
-                    <Input placeholder="请输入开发者的SUI钱包地址" />
-                  </Form.Item>
-                  
-                  <Form.Item>
+      {error && (
+        <Alert message="错误" description={error} type="error" showIcon style={{ marginBottom: 24 }} />
+      )}
+      
+      <Tabs
+        activeKey={activeKey}
+        onChange={handleTabChange}
+        className="manage-tabs"
+        items={[
+          ...(userRole === UserRole.GAME_DEV ? [
+            {
+              key: 'myAdSpaces',
+              label: <span><AppstoreOutlined /> 我的广告位</span>,
+              children: (
+                <div className="my-ad-spaces-container">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <Text strong>您创建的广告位列表</Text>
                     <Button 
                       type="primary" 
-                      htmlType="submit" 
-                      loading={loading}
-                      className="submit-button"
+                      onClick={() => loadMyAdSpaces()} 
+                      icon={<ReloadOutlined />}
                     >
-                      注册开发者
+                      刷新
                     </Button>
-                  </Form.Item>
-                </Form>
-              </Card>
-              
-              <div className="registered-devs-section">
-                <Title level={4}>已注册开发者</Title>
-                {registeredDevs.length > 0 ? (
-                  <List
-                    dataSource={registeredDevs}
-                    renderItem={(dev) => (
-                      <List.Item className="dev-address-item">
-                        <div className="address-content">
-                          <Tooltip title={dev} placement="topLeft">
-                            <Text className="address-text">
-                              {dev.substring(0, 10)}...{dev.substring(dev.length - 8)}
-                            </Text>
-                          </Tooltip>
-                          <div className="button-group">
-                            <Button
-                              type="link"
-                              size="small"
-                              onClick={() => {
-                                navigator.clipboard.writeText(dev);
-                                message.success('地址已复制');
-                              }}
-                            >
-                              复制
-                            </Button>
-                            <Popconfirm
-                              title="移除开发者"
-                              description="确定要移除此开发者吗？此操作不可撤销。"
-                              onConfirm={() => handleRemoveGameDev(dev)}
-                              okText="确认"
-                              cancelText="取消"
-                              okButtonProps={{ danger: true }}
-                            >
-                              <Button
-                                type="link"
-                                size="small"
-                                danger
-                                loading={loading}
-                              >
-                                移除
-                              </Button>
-                            </Popconfirm>
-                          </div>
-                        </div>
-                      </List.Item>
-                    )}
-                    bordered
-                    className="registered-devs-list"
-                  />
-                ) : (
-                  <Empty description="暂无已注册的开发者" />
-                )}
-              </div>
-            </div>
-          </TabPane>
-        )}
-        
-        {userRole === UserRole.GAME_DEV && (
-          <TabPane tab="创建广告位" key="create">
-            <div className="form-container">
-              <Title level={4}>新建广告位</Title>
-              <Paragraph>
-                在此创建新的广告位。创建后，广告位将可供用户购买。
-              </Paragraph>
-              
-              {error && (
-                <Alert 
-                  message="错误" 
-                  description={error} 
-                  type="error" 
-                  showIcon 
-                  className="error-alert"
-                  closable
-                  onClose={() => setError(null)}
-                />
-              )}
-              
-              <Form
-                form={adSpaceForm}
-                layout="vertical"
-                onFinish={handleCreateAdSpace}
-                className="create-form"
-              >
-                <Form.Item
-                  name="gameId"
-                  label="游戏ID"
-                  rules={[{ required: true, message: '请输入游戏ID' }]}
-                >
-                  <Input placeholder="请输入游戏ID" />
-                </Form.Item>
-                
-                <Form.Item
-                  name="location"
-                  label="位置"
-                  rules={[{ required: true, message: '请输入位置' }]}
-                >
-                  <Input placeholder="请输入位置，如'大厅门口'、'竞技场中心'等" />
-                </Form.Item>
-                
-                <Form.Item
-                  name="size"
-                  label="尺寸"
-                  rules={[{ required: true, message: '请选择尺寸' }]}
-                >
-                  <Select placeholder="请选择尺寸">
-                    <Option value="小">小 (128x128)</Option>
-                    <Option value="中">中 (256x256)</Option>
-                    <Option value="大">大 (512x512)</Option>
-                    <Option value="超大">超大 (1024x512)</Option>
-                  </Select>
-                </Form.Item>
-                
-                <Form.Item
-                  name="price"
-                  label="价格 (SUI)"
-                  rules={[
-                    { required: true, message: '请输入价格' },
-                    { type: 'number', min: 0.000001, message: '价格必须大于0' }
-                  ]}
-                >
-                  <InputNumber
-                    placeholder="请输入价格"
-                    step={0.1}
-                    precision={9}
-                    min={0.000001}
-                    style={{ width: '100%' }}
-                  />
-                </Form.Item>
-                
-                <Form.Item>
-                  <Button 
-                    type="primary" 
-                    htmlType="submit" 
-                    loading={loading}
-                    disabled={loading}
-                    className="submit-button"
-                  >
-                    创建广告位
-                  </Button>
-                </Form.Item>
-              </Form>
-            </div>
-          </TabPane>
-        )}
-        
-        {userRole === UserRole.GAME_DEV && (
-          <TabPane tab="我的广告位" key="myAdSpaces">
-            <div className="ad-spaces-container">
-              <div className="ad-spaces-header">
-                <Title level={4}>我创建的广告位</Title>
-              </div>
-              
-              {loadingAdSpaces ? (
-                <div className="loading-container">
-                  <Spin size="large" />
-                  <p className="loading-text">加载广告位数据中...</p>
+                  </div>
+                  {renderMyAdSpaces()}
                 </div>
-              ) : myAdSpaces.length === 0 ? (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="您还没有创建任何广告位"
-                  className="empty-ad-spaces"
-                >
-                  <Button 
-                    type="primary" 
-                    onClick={() => setActiveKey('create')}
-                  >
-                    创建第一个广告位
-                  </Button>
-                </Empty>
-              ) : (
-                <List
-                  grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }}
-                  dataSource={myAdSpaces}
-                  renderItem={adSpace => (
-                    <List.Item>
-                      <Card
-                        hoverable
-                        cover={
-                          <div className="ad-space-image-placeholder">
-                            <div className="placeholder-content">
-                              <Typography.Title level={5}>{adSpace.name}</Typography.Title>
-                              <Typography.Text>{adSpace.dimension.width}x{adSpace.dimension.height}</Typography.Text>
-                            </div>
-                          </div>
-                        }
-                        className={adSpace.isExample ? 'example-ad-space' : ''}
+              )
+            },
+            {
+              key: 'create',
+              label: <span><PlusOutlined /> 创建广告位</span>,
+              children: (
+                <div className="form-container">
+                  <Card title="创建新广告位" bordered={false}>
+                    <Form
+                      form={adSpaceForm}
+                      layout="vertical"
+                      onFinish={handleCreateAdSpace}
+                      className="create-form"
+                    >
+                      <Form.Item
+                        name="gameId"
+                        label="游戏ID"
+                        rules={[{ required: true, message: '请输入游戏ID' }]}
                       >
-                        <Card.Meta
-                          title={adSpace.name}
-                          description={adSpace.description}
+                        <Input placeholder="游戏ID" />
+                      </Form.Item>
+                      
+                      <Form.Item
+                        name="location"
+                        label="广告位位置"
+                        rules={[{ required: true, message: '请输入广告位位置' }]}
+                      >
+                        <Input placeholder="广告位位置，例如: 主菜单、游戏大厅" />
+                      </Form.Item>
+                      
+                      <Form.Item
+                        name="size"
+                        label="广告位尺寸"
+                        rules={[{ required: true, message: '请选择广告位尺寸' }]}
+                      >
+                        <Select placeholder="选择尺寸">
+                          <Option value="小">小 (320x100)</Option>
+                          <Option value="中">中 (320x250)</Option>
+                          <Option value="大">大 (728x90)</Option>
+                          <Option value="超大">超大 (970x250)</Option>
+                        </Select>
+                      </Form.Item>
+                      
+                      <Form.Item
+                        name="price"
+                        label="每天价格 (SUI)"
+                        rules={[{ required: true, message: '请输入每天价格' }]}
+                      >
+                        <InputNumber
+                          min={0.000000001}
+                          step={0.1}
+                          precision={9}
+                          placeholder="每天价格 (SUI)"
+                          style={{ width: '100%' }}
                         />
-                        <div className="card-details">
-                          <div className="detail-item">
-                            <Typography.Text type="secondary">位置:</Typography.Text>
-                            <Typography.Text>{adSpace.location}</Typography.Text>
-                          </div>
-                          <div className="detail-item">
-                            <Typography.Text type="secondary">价格:</Typography.Text>
-                            <Typography.Text>{Number(adSpace.price) / 1000000000} SUI/天</Typography.Text>
-                          </div>
-                          {adSpace.price_description && (
-                            <div className="detail-item price-description">
-                              <Typography.Text type="secondary">{adSpace.price_description}</Typography.Text>
-                            </div>
-                          )}
-                          <div className="detail-item">
-                            <Typography.Text type="secondary">尺寸:</Typography.Text>
-                            <Typography.Text>{adSpace.dimension.width}x{adSpace.dimension.height}</Typography.Text>
-                          </div>
-                          <div className="detail-item">
-                            <Typography.Text type="secondary">状态:</Typography.Text>
-                            <Typography.Text>{adSpace.available ? '可用' : '已租用'}</Typography.Text>
-                          </div>
-                        </div>
-                        {!adSpace.isExample && (
-                          <div className="card-actions">
-                            <Button 
-                              type="primary" 
-                              className="action-button"
-                              onClick={() => handleUpdatePrice(adSpace)}
-                            >
-                              调价
-                            </Button>
-                            <Popconfirm
-                              title="确定要删除这个广告位吗？"
-                              description="删除后无法恢复，且当前所有关联的NFT将无法访问。"
-                              onConfirm={() => handleDeleteAdSpace(adSpace.id)}
-                              okText="确定"
-                              cancelText="取消"
-                            >
-                              <Button danger className="action-button">删除</Button>
-                            </Popconfirm>
-                          </div>
-                        )}
-                        {adSpace.isExample && (
-                          <div className="card-actions">
-                            <Button 
-                              type="primary" 
-                              className="action-button"
-                              onClick={() => setActiveKey('create')}
-                            >
-                              创建第一个广告位
-                            </Button>
-                          </div>
-                        )}
-                      </Card>
-                    </List.Item>
-                  )}
-                />
-              )}
-            </div>
-          </TabPane>
-        )}
-      </Tabs>
-
-      {/* 价格更新模态框 */}
+                      </Form.Item>
+                      
+                      <Form.Item>
+                        <Button 
+                          type="primary" 
+                          htmlType="submit" 
+                          loading={loading}
+                          className="submit-button"
+                        >
+                          创建广告位
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  </Card>
+                </div>
+              )
+            }
+          ] : []),
+          ...(userRole === UserRole.ADMIN ? [
+            {
+              key: 'devManage',
+              label: <span><TeamOutlined /> 开发者管理</span>,
+              children: (
+                <div>
+                  <Card 
+                    title="注册游戏开发者" 
+                    className="register-dev-card"
+                  >
+                    <Form
+                      form={devRegisterForm}
+                      layout="vertical"
+                      onFinish={handleRegisterGameDev}
+                      className="register-form"
+                    >
+                      <Form.Item
+                        name="developerAddress"
+                        label="开发者钱包地址"
+                        rules={[{ required: true, message: '请输入开发者钱包地址' }]}
+                      >
+                        <Input placeholder="输入0x开头的地址" />
+                      </Form.Item>
+                      
+                      <Form.Item>
+                        <Button 
+                          type="primary" 
+                          htmlType="submit" 
+                          loading={loading}
+                          className="submit-button"
+                          icon={<UserAddOutlined />}
+                        >
+                          注册开发者
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  </Card>
+                  
+                  <div className="registered-devs-section">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Title level={4}>已注册的游戏开发者</Title>
+                      <Button 
+                        onClick={async () => {
+                          const { getGameDevsFromFactory } = await import('../utils/contract');
+                          const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+                          setRegisteredDevs(devs);
+                        }}
+                        icon={<ReloadOutlined />}
+                      >
+                        刷新
+                      </Button>
+                    </div>
+                    {renderRegisteredDevs()}
+                  </div>
+                </div>
+              )
+            }
+          ] : [])
+        ]}
+      />
+      
       <Modal
-        title="调整广告位价格"
+        title="更新广告位价格"
         open={priceModalVisible}
         onCancel={() => setPriceModalVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setPriceModalVisible(false)}>
-            取消
-          </Button>,
-          <Button 
-            key="submit" 
-            type="primary" 
-            loading={priceUpdateLoading} 
-            onClick={handlePriceUpdateSubmit}
-          >
-            确认
-          </Button>
-        ]}
+        onOk={handlePriceUpdateSubmit}
+        confirmLoading={priceUpdateLoading}
+        className="price-update-modal"
       >
         <Form layout="vertical">
-          <Form.Item
-            label="广告位"
-            name="adSpaceName"
+          <Form.Item 
+            label="当前广告位" 
+            className="price-form-item"
+          >
+            <Input value={currentAdSpace?.name} disabled />
+          </Form.Item>
+          <Form.Item 
+            label="当前价格 (SUI/天)" 
+            className="price-form-item"
           >
             <Input 
-              value={currentAdSpace?.name} 
+              value={currentAdSpace ? parseFloat((Number(currentAdSpace.price) / 1000000000).toFixed(9)) : ''} 
               disabled 
-              placeholder={currentAdSpace?.name || '广告位'}
             />
           </Form.Item>
-          <Form.Item
-            label="当前价格 (SUI/天)"
-            name="currentPrice"
-          >
-            <Input 
-              value={currentAdSpace ? Number(currentAdSpace.price) / 1000000000 : 0} 
-              disabled 
-              placeholder={currentAdSpace ? (Number(currentAdSpace.price) / 1000000000).toString() : '0'}
-            />
-          </Form.Item>
-          <Form.Item
-            label="新价格 (SUI/天)"
-            name="newPrice"
-            rules={[
-              { required: true, message: '请输入新价格' },
-              { type: 'number', min: 0.000001, message: '价格必须大于0' }
-            ]}
+          <Form.Item 
+            label="新价格 (SUI/天)" 
+            className="price-form-item"
           >
             <InputNumber
+              min={0.000000001}
+              step={0.1}
+              precision={9}
               value={newPrice}
               onChange={setNewPrice}
-              precision={9}
-              min={0.000001}
-              step={0.1}
               style={{ width: '100%' }}
             />
           </Form.Item>

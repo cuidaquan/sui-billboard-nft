@@ -3,22 +3,65 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+  height: 70px;
+  position: relative;
+  
+  // 添加高科技特效
+  &:after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(78, 99, 255, 0.3) 20%,
+      rgba(78, 99, 255, 0.6) 50%,
+      rgba(78, 99, 255, 0.3) 80%,
+      transparent 100%
+    );
+  }
 
   .logo {
     margin-right: 24px;
     
     h3 {
       margin: 0;
-      color: white;
+      font-size: 22px;
+      font-weight: 700;
       
       a {
-        color: white;
+        color: #101432;
         text-decoration: none;
         display: flex;
         align-items: center;
+        background: linear-gradient(90deg, #4e63ff, #6e56cf);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        position: relative;
+        
+        &:after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #4e63ff, #6e56cf);
+          opacity: 0;
+          transform: scaleX(0.7);
+          transition: all 0.3s;
+        }
+        
+        &:hover:after {
+          opacity: 1;
+          transform: scaleX(1);
+        }
         
         .anticon {
-          margin-right: 8px;
+          margin-right: 10px;
+          font-size: 24px;
         }
       }
     }
@@ -28,9 +71,122 @@
     flex: 1;
     border-bottom: none;
     background: transparent;
+    
+    .ant-menu-item {
+      font-weight: 500;
+      
+      .anticon {
+        margin-right: 6px;
+        font-size: 16px;
+      }
+      
+      &.ant-menu-item-selected {
+        color: #4e63ff;
+        font-weight: 600;
+        
+        &:after {
+          border-bottom-color: #4e63ff;
+        }
+      }
+      
+      &:hover {
+        color: #6e56cf;
+        
+        &:after {
+          border-bottom-color: #6e56cf;
+        }
+      }
+    }
   }
   
   .connect-wallet {
     margin-left: 24px;
+    
+    // 科技感连接钱包按钮
+    .connect-button {
+      border-radius: 8px;
+      height: 40px;
+      padding: 0 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      transition: all 0.3s;
+      background: linear-gradient(90deg, #4e63ff, #6e56cf);
+      border: none;
+      color: white;
+      box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
+        background: linear-gradient(90deg, #5a6eff, #7a62d9);
+      }
+      
+      .anticon {
+        margin-right: 8px;
+      }
+    }
+    
+    // 已连接钱包样式
+    .wallet-info {
+      .wallet-address {
+        padding: 5px 10px;
+        background: rgba(78, 99, 255, 0.1);
+        border-radius: 8px;
+        border: 1px solid rgba(78, 99, 255, 0.2);
+        color: #4e63ff;
+        font-family: 'Roboto Mono', monospace;
+        cursor: pointer;
+        transition: all 0.3s;
+        
+        &:hover {
+          background: rgba(78, 99, 255, 0.15);
+        }
+        
+        .anticon {
+          margin-left: 5px;
+        }
+      }
+    }
+  }
+  
+  // 动态科技感效果
+  .header-decoration {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    
+    &:before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 1px dashed rgba(78, 99, 255, 0.3);
+      animation: rotate 20s linear infinite;
+    }
+    
+    &:after {
+      content: '';
+      position: absolute;
+      top: 30px;
+      right: 30px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px dashed rgba(110, 86, 207, 0.3);
+      animation: rotate 15s linear infinite reverse;
+    }
+  }
+  
+  @keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 } 

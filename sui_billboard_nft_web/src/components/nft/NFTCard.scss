@@ -1,6 +1,21 @@
 .nft-card {
   width: 100%;
   margin-bottom: 16px;
+  background: var(--background-content);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  transition: all var(--animation-speed-normal);
+  box-shadow: var(--box-shadow-sm);
+  border: none;
+  
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--box-shadow-md);
+    
+    .nft-image-container img {
+      transform: scale(1.05);
+    }
+  }
   
   .nft-image-container {
     height: 200px;
@@ -9,11 +24,24 @@
     align-items: center;
     justify-content: center;
     background-color: #f5f5f5;
+    position: relative;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(0deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 50%);
+      pointer-events: none;
+    }
     
     img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transition: transform var(--animation-speed-normal);
     }
   }
   
@@ -22,6 +50,8 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-dark);
+    font-weight: 700;
   }
   
   .nft-info {
@@ -35,7 +65,7 @@
       
       &.lease-period {
         margin-top: 12px;
-        padding: 8px 0;
+        padding: 12px 0;
         border-top: 1px dashed #e8e8e8;
         border-bottom: 1px dashed #e8e8e8;
       }
@@ -43,10 +73,11 @@
       .ad-space-link {
         display: flex;
         align-items: center;
-        color: inherit;
+        color: var(--text-medium);
+        transition: color var(--animation-speed-fast);
         
         &:hover {
-          color: #1677ff;
+          color: var(--primary);
           text-decoration: underline;
         }
       }
@@ -57,10 +88,40 @@
       text-align: right;
       
       .ant-tag {
-        font-weight: 500;
-        padding: 0 8px;
-        border-radius: 4px;
+        font-weight: 600;
+        padding: 2px 10px;
+        border-radius: var(--border-radius-sm);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: none;
+        
+        &.ant-tag-green {
+          background: linear-gradient(135deg, #4CAF50, #2E7D32);
+          color: white;
+        }
+        
+        &.ant-tag-orange {
+          background: linear-gradient(135deg, #FF9800, #F57C00);
+          color: white;
+        }
+        
+        &.ant-tag-red {
+          background: linear-gradient(135deg, #F44336, #D32F2F);
+          color: white;
+        }
       }
+    }
+  }
+  
+  .ant-btn-primary {
+    background: var(--primary-gradient);
+    border: none;
+    font-weight: 500;
+    height: 38px;
+    transition: all var(--animation-speed-normal);
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(78, 99, 255, 0.3);
     }
   }
 } 
