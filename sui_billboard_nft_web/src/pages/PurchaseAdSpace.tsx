@@ -4,7 +4,7 @@ import { Typography, Spin, Alert, message, Button } from 'antd';
 import { useCurrentAccount, useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { AdSpace, PurchaseAdSpaceParams, UserRole } from '../types';
 import AdSpaceForm from '../components/adSpace/AdSpaceForm';
-import { getAdSpaceDetails, createPurchaseAdSpaceTx, getUserNFTs } from '../utils/contract';
+import { getAdSpaceDetails, createPurchaseAdSpaceTx, getUserNFTs, getNFTDetails } from '../utils/contract';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 import './PurchaseAdSpace.scss';
 
@@ -98,6 +98,38 @@ const PurchaseAdSpacePage: React.FC = () => {
         setError('游戏开发者不能购买自己创建的广告位');
         setIsAuthorized(false);
         return;
+      }
+      
+      // 检查用户是否已经拥有该广告位的NFT
+      if (userAddress && space.nft_ids && space.nft_ids.length > 0) {
+        console.log('检查用户是否已拥有此广告位的NFT');
+        
+        let hasActiveOrPendingNFT = false;
+        const now = new Date();
+        
+        // 获取该广告位下所有NFT的详情
+        for (const nftId of space.nft_ids) {
+          const nftDetails = await getNFTDetails(nftId);
+          
+          if (nftDetails && nftDetails.owner.toLowerCase() === userAddress) {
+            const leaseStart = new Date(nftDetails.leaseStart);
+            const leaseEnd = new Date(nftDetails.leaseEnd);
+            
+            // 检查NFT是否是活跃的或待展示的
+            if ((now >= leaseStart && now <= leaseEnd) || // 活跃中
+                (now < leaseStart)) { // 待展示
+              console.log(`用户已拥有广告位[${space.id}]的NFT[${nftId}]，不允许再次购买`);
+              hasActiveOrPendingNFT = true;
+              break;
+            }
+          }
+        }
+        
+        if (hasActiveOrPendingNFT) {
+          setError('您已拥有此广告位的活跃或待展示NFT，不能再次购买');
+          setIsAuthorized(false);
+          return;
+        }
       }
     } catch (err) {
       console.error('获取广告位详情失败:', err);

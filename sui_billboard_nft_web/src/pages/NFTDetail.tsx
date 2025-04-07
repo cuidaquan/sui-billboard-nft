@@ -425,6 +425,31 @@ const NFTDetailPage: React.FC = () => {
 
   // 判断NFT是否已过期
   const isExpired = nft ? new Date(nft.leaseEnd) < new Date() : false;
+  
+  // 判断NFT状态：待展示、活跃中或已过期
+  const getNftStatus = () => {
+    if (!nft) return { status: 'unknown', color: 'default' };
+    
+    const now = new Date();
+    const leaseStart = new Date(nft.leaseStart);
+    const leaseEnd = new Date(nft.leaseEnd);
+    
+    if (now < leaseStart) {
+      return { status: 'pending', color: 'blue', text: '待展示' };
+    } else if (now > leaseEnd || !nft.isActive) {
+      return { status: 'expired', color: 'red', text: '已过期' };
+    } else {
+      return { status: 'active', color: 'green', text: '活跃中' };
+    }
+  };
+  
+  // 检查当前用户是否为NFT所有者
+  const isOwner = () => {
+    if (!nft || !account) return false;
+    return nft.owner.toLowerCase() === account.address.toLowerCase();
+  };
+  
+  const nftStatus = getNftStatus();
 
   if (loading) {
     return (
@@ -451,8 +476,8 @@ const NFTDetailPage: React.FC = () => {
       <div className="nft-header">
         <Title level={2}>{nft.brandName}</Title>
         <div className="status-tag">
-          <Tag className={`status ${isExpired ? 'expired' : 'active'}`}>
-            {isExpired ? '已过期' : '活跃中'}
+          <Tag className={`status ${nftStatus.status}`} color={nftStatus.color}>
+            {nftStatus.text}
           </Tag>
         </div>
       </div>
@@ -494,41 +519,53 @@ const NFTDetailPage: React.FC = () => {
                 </Space>
               </Descriptions.Item>
               <Descriptions.Item label="状态">
-                <Tag color={isExpired ? "red" : "green"}>
-                  {isExpired ? "已过期" : "活跃中"}
+                <Tag color={nftStatus.color}>
+                  {nftStatus.text}
                 </Tag>
               </Descriptions.Item>
             </Descriptions>
             
             <div className="nft-actions">
               <Space size="middle">
-                <Button 
-                  type="primary" 
-                  icon={<EditOutlined />} 
-                  onClick={() => setUpdateContentVisible(true)}
-                  disabled={isExpired}
-                >
-                  更新广告内容
-                </Button>
-                <Button 
-                  type="default" 
-                  icon={<ClockCircleOutlined />} 
-                  onClick={() => {
-                    // 检查NFT是否已过期，由于合约限制，暂时只允许未过期的NFT续租
-                    if (isExpired) {
-                      message.warning({
-                        content: '由于合约限制，当前只能对未过期的NFT进行续租。此NFT已过期，请联系管理员。',
-                        duration: 5
-                      });
-                      return;
-                    }
-                    setRenewLeaseVisible(true);
-                  }}
-                  danger={isExpired}
-                >
-                  {isExpired ? "已过期无法续租" : "续租NFT"}
-                </Button>
+                {isOwner() && (
+                  <>
+                    <Button 
+                      type="primary" 
+                      icon={<EditOutlined />} 
+                      onClick={() => setUpdateContentVisible(true)}
+                      disabled={nftStatus.status === 'expired'}
+                    >
+                      更新广告内容
+                    </Button>
+                    <Button 
+                      type="default" 
+                      icon={<ClockCircleOutlined />} 
+                      onClick={() => {
+                        // 检查NFT是否已过期，由于合约限制，暂时只允许未过期的NFT续租
+                        if (nftStatus.status === 'expired') {
+                          message.warning({
+                            content: '由于合约限制，当前只能对未过期的NFT进行续租。此NFT已过期，请联系管理员。',
+                            duration: 5
+                          });
+                          return;
+                        }
+                        setRenewLeaseVisible(true);
+                      }}
+                      danger={nftStatus.status === 'expired'}
+                    >
+                      {nftStatus.status === 'expired' ? "已过期无法续租" : "续租NFT"}
+                    </Button>
+                  </>
+                )}
               </Space>
+              {!isOwner() && (
+                <Alert
+                  message="仅NFT所有者可以更新内容或续租"
+                  type="info"
+                  showIcon
+                  style={{ marginTop: '16px' }}
+                />
+              )}
             </div>
           </Card>
         </div>

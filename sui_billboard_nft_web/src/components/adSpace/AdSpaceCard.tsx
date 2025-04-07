@@ -1,10 +1,11 @@
-import React from 'react';
-import { Card, Button, Typography, Space, Tag } from 'antd';
-import { EnvironmentOutlined, ColumnWidthOutlined, DollarOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Button, Typography, Space, Tag, Spin, Tooltip } from 'antd';
+import { EnvironmentOutlined, ColumnWidthOutlined, DollarOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { AdSpace, UserRole } from '../../types';
+import { AdSpace, UserRole, BillboardNFT } from '../../types';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { useMemo } from 'react';
+import { getNFTDetails } from '../../utils/contract';
 import './AdSpaceCard.scss';
 
 const { Title, Text } = Typography;
@@ -17,6 +18,90 @@ interface AdSpaceCardProps {
 
 const AdSpaceCard: React.FC<AdSpaceCardProps> = ({ adSpace, userRole, creatorAddress }) => {
   const account = useCurrentAccount();
+  const [activeNft, setActiveNft] = useState<BillboardNFT | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [userOwnedNfts, setUserOwnedNfts] = useState<BillboardNFT[]>([]);
+  
+  // 获取活跃NFT内容和用户拥有的NFT
+  useEffect(() => {
+    const fetchNftData = async () => {
+      // 如果广告位有NFT ID列表且不为空
+      if (adSpace.nft_ids && adSpace.nft_ids.length > 0) {
+        try {
+          setLoading(true);
+          console.log(`开始获取广告位[${adSpace.id}]的NFT信息，NFT IDs:`, adSpace.nft_ids);
+          
+          const now = new Date();
+          const userAddress = account ? account.address.toLowerCase() : null;
+          const userNfts: BillboardNFT[] = [];
+          
+          // 遍历所有NFT
+          for (const nftId of adSpace.nft_ids) {
+            console.log(`正在检查NFT[${nftId}]`);
+            const nftDetails = await getNFTDetails(nftId);
+            
+            if (nftDetails) {
+              console.log(`获取到NFT[${nftId}]详情:`, {
+                brandName: nftDetails.brandName,
+                contentUrl: nftDetails.contentUrl,
+                leaseEnd: nftDetails.leaseEnd,
+                isActive: nftDetails.isActive,
+                owner: nftDetails.owner
+              });
+              
+              const leaseStart = new Date(nftDetails.leaseStart);
+              const leaseEnd = new Date(nftDetails.leaseEnd);
+              
+              console.log(`NFT[${nftId}]租期: 开始=${leaseStart.toLocaleString()}, 结束=${leaseEnd.toLocaleString()}, 当前时间=${now.toLocaleString()}`);
+              
+              // 检查NFT是否属于当前用户
+              if (userAddress && nftDetails.owner.toLowerCase() === userAddress) {
+                console.log(`NFT[${nftId}]属于当前用户`);
+                userNfts.push(nftDetails);
+              }
+              
+              // 只有当前时间在租期内的NFT才被视为活跃
+              if (now >= leaseStart && now <= leaseEnd) {
+                console.log(`找到活跃NFT[${nftId}]，将显示在卡片中, 内容URL:`, nftDetails.contentUrl);
+                
+                // 检查contentUrl是否有效
+                if (!nftDetails.contentUrl) {
+                  console.warn(`NFT[${nftId}]的contentUrl为空，可能导致图片无法显示`);
+                } else {
+                  // 尝试预加载图片
+                  const img = new Image();
+                  img.onload = () => console.log(`NFT[${nftId}]图片加载成功`, img.width, img.height);
+                  img.onerror = (err) => console.error(`NFT[${nftId}]图片加载失败`, err);
+                  img.src = nftDetails.contentUrl;
+                }
+                
+                setActiveNft(nftDetails);
+                break;
+              } else if (now < leaseStart) {
+                console.log(`NFT[${nftId}]尚未开始展示，租期开始时间:`, leaseStart.toLocaleString());
+              } else {
+                console.log(`NFT[${nftId}]已过期，租期结束时间:`, leaseEnd.toLocaleString());
+              }
+            } else {
+              console.log(`未能获取NFT[${nftId}]详情`);
+            }
+          }
+          
+          // 保存用户拥有的NFT列表
+          setUserOwnedNfts(userNfts);
+          
+        } catch (err) {
+          console.error(`获取广告位[${adSpace.id}]的NFT失败:`, err);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        console.log(`广告位[${adSpace.id}]没有关联的NFT ID`);
+      }
+    };
+    
+    fetchNftData();
+  }, [adSpace.id, adSpace.nft_ids, account]);
   
   // 判断是否应该显示购买按钮
   const shouldShowPurchase = useMemo(() => {
@@ -47,9 +132,15 @@ const AdSpaceCard: React.FC<AdSpaceCardProps> = ({ adSpace, userRole, creatorAdd
       return false;
     }
     
+    // 如果用户拥有该广告位的NFT（不论是活跃的还是待展示的），不显示购买按钮
+    if (userOwnedNfts.length > 0) {
+      console.log(`用户拥有广告位[${adSpace.id}]的NFT，数量: ${userOwnedNfts.length}，隐藏购买按钮`);
+      return false;
+    }
+    
     // 其他情况显示购买按钮
     return true;
-  }, [userRole, creatorAddress, account, adSpace.id, adSpace.name]);
+  }, [userRole, creatorAddress, account, adSpace.id, adSpace.name, userOwnedNfts]);
   
   return (
     <Card 
@@ -57,10 +148,30 @@ const AdSpaceCard: React.FC<AdSpaceCardProps> = ({ adSpace, userRole, creatorAdd
       hoverable
       cover={
         <div className="card-cover">
-          <div className="ad-space-placeholder">
-            <ColumnWidthOutlined />
-            <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-          </div>
+          {loading ? (
+            <div className="loading-container">
+              <Spin />
+            </div>
+          ) : activeNft && activeNft.contentUrl ? (
+            <div className="active-nft-cover">
+              <img 
+                src={activeNft.contentUrl} 
+                alt={activeNft.brandName || '广告内容'} 
+                onError={(e) => {
+                  console.error(`NFT图片加载失败:`, activeNft.contentUrl);
+                  // 图片加载失败时，显示占位符
+                  (e.target as HTMLImageElement).src = `https://via.placeholder.com/${adSpace.dimension.width}x${adSpace.dimension.height}?text=广告内容`;
+                }}
+              />
+              <Tag className="active-tag" color="green">活跃中</Tag>
+            </div>
+          ) : (
+            <div className="empty-ad-space-placeholder">
+              <ColumnWidthOutlined />
+              <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
+              <Text className="empty-text">等待广告内容</Text>
+            </div>
+          )}
         </div>
       }
       actions={[
@@ -89,10 +200,12 @@ const AdSpaceCard: React.FC<AdSpaceCardProps> = ({ adSpace, userRole, creatorAdd
         
         <div className="info-item">
           <DollarOutlined />
-          <Text>价格: {Number(adSpace.price) / 1000000000} SUI / {adSpace.duration}天</Text>
-          {adSpace.price_description && (
-            <Text type="secondary" className="price-description">{adSpace.price_description}</Text>
-          )}
+          <Text className="price-text">
+            {parseFloat((Number(adSpace.price) / 1000000000).toFixed(9))} SUI/天
+            <Tooltip title="价格随租期按比例计算，租期越长越划算">
+              <QuestionCircleOutlined style={{ marginLeft: 4 }} />
+            </Tooltip>
+          </Text>
         </div>
       </Space>
       
@@ -100,6 +213,9 @@ const AdSpaceCard: React.FC<AdSpaceCardProps> = ({ adSpace, userRole, creatorAdd
         <Tag color="blue">{adSpace.location}</Tag>
         {creatorAddress && account && creatorAddress.toLowerCase() === account.address.toLowerCase() && (
           <Tag color="purple">我的广告位</Tag>
+        )}
+        {userOwnedNfts.length > 0 && (
+          <Tag color="green">我的NFT</Tag>
         )}
       </div>
     </Card>

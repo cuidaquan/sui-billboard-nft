@@ -14,6 +14,7 @@ export interface AdSpace {
   location: string; // 位置描述
   isExample?: boolean; // 标记是否为示例数据
   price_description?: string; // 价格描述，说明价格的计算方式
+  nft_ids?: string[]; // NFT ID列表
 }
 
 export interface NFTBillboard {
@@ -65,6 +66,13 @@ export interface BillboardNFT {
   leaseStart: string;
   leaseEnd: string;
   isActive: boolean;
+  creationTime?: string; // 创建时间
+  lastRenewalTime?: string; // 最后续约时间
+  price?: string; // NFT购买价格
+  originalOwner?: string; // 初始创建者地址
+  size?: { width: number; height: number }; // NFT对应的广告位尺寸
+  gameId?: string; // 关联的游戏ID
+  location?: string; // 关联的广告位位置
 }
 
 export interface AdSpaceFilter {

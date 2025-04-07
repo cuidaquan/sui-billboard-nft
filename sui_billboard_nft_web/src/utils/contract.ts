@@ -660,6 +660,7 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
     });
     
     console.log(`[${requestId}] 获取到NFT对象:`, nftObject.data?.objectId);
+    console.log(`[${requestId}] NFT对象类型:`, nftObject.data?.type);
     
     // 检查对象是否存在且是NFT类型
     if (!nftObject.data || !nftObject.data.content) {
@@ -669,7 +670,14 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
     
     // 检查对象类型是否为AdBoardNFT
     const typeStr = nftObject.data.type || '';
-    const isNftType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::nft::AdBoardNFT`);
+    console.log(`[${requestId}] 正在检查NFT类型: "${typeStr}"`);
+    
+    // 支持多种可能的类型名称
+    const isNftType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::nft::AdBoardNFT`) || 
+                      typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::billboard_nft::AdBoardNFT`) ||
+                      typeStr.includes(`::nft::AdBoardNFT`);
+    
+    console.log(`[${requestId}] NFT类型检查结果:`, isNftType ? "✓" : "✗");
     
     if (!isNftType || nftObject.data.content.dataType !== 'moveObject') {
       console.error(`[${requestId}] 对象不是AdBoardNFT类型:`, {
@@ -683,7 +691,8 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
     const moveObject = nftObject.data.content as { dataType: 'moveObject', fields: Record<string, any> };
     const fields = moveObject.fields;
     
-    console.log(`[${requestId}] NFT字段:`, Object.keys(fields));
+    console.log(`[${requestId}] NFT字段:`, Object.keys(fields || {}));
+    console.log(`[${requestId}] NFT完整字段内容:`, JSON.stringify(fields, null, 2));
     
     // 提取广告位ID
     let adSpaceId = '';
@@ -697,13 +706,16 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
     if (nftObject.data.owner && typeof nftObject.data.owner === 'object') {
       const ownerObj = nftObject.data.owner as any;
       owner = ownerObj.AddressOwner || ownerObj.ObjectOwner || '';
+      console.log(`[${requestId}] NFT所有者:`, owner);
     }
     
     // 提取品牌名称
     const brandName = fields.brand_name || '';
+    console.log(`[${requestId}] 品牌名称:`, brandName);
     
     // 提取内容URL
     const contentUrl = fields.content_url || '';
+    console.log(`[${requestId}] 内容URL:`, contentUrl);
     
     // 提取项目URL
     const projectUrl = fields.project_url || '';
@@ -712,8 +724,45 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
     const leaseStart = fields.lease_start ? Number(fields.lease_start) * 1000 : Date.now();
     const leaseEnd = fields.lease_end ? Number(fields.lease_end) * 1000 : (Date.now() + 30 * 24 * 60 * 60 * 1000);
     
+    console.log(`[${requestId}] 租期:`, {
+      start: new Date(leaseStart).toLocaleString(),
+      end: new Date(leaseEnd).toLocaleString()
+    });
+    
     // 判断NFT是否有效/活跃
     const isActive = leaseEnd > Date.now() && (fields.is_active === true || fields.is_active === undefined);
+    console.log(`[${requestId}] NFT是否活跃:`, isActive ? "是" : "否");
+    
+    // 提取价格信息
+    const price = fields.price || fields.amount || '';
+    
+    // 提取创建时间/最后续约时间
+    const creationTime = fields.creation_time ? new Date(Number(fields.creation_time) * 1000).toISOString() : 
+                        new Date(leaseStart).toISOString();
+    
+    const lastRenewalTime = fields.last_renewal_time ? new Date(Number(fields.last_renewal_time) * 1000).toISOString() :
+                           fields.renewal_time ? new Date(Number(fields.renewal_time) * 1000).toISOString() : undefined;
+    
+    // 提取初始创建者地址
+    const originalOwner = fields.original_owner || fields.creator || '';
+    
+    // 尝试获取关联的广告位信息
+    let gameId = '';
+    let location = '';
+    let size = { width: 300, height: 250 };
+    
+    if (adSpaceId) {
+      try {
+        const adSpace = await getAdSpaceById(adSpaceId);
+        if (adSpace) {
+          gameId = adSpace.name.replace(' 广告位', '');
+          location = adSpace.location;
+          size = adSpace.dimension;
+        }
+      } catch (error) {
+        console.log(`[${requestId}] 获取关联广告位信息失败:`, error);
+      }
+    }
     
     // 构建NFT对象
     const nft: BillboardNFT = {
@@ -725,7 +774,14 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
       projectUrl,
       leaseStart: new Date(leaseStart).toISOString(),
       leaseEnd: new Date(leaseEnd).toISOString(),
-      isActive
+      isActive,
+      creationTime,
+      lastRenewalTime,
+      price,
+      originalOwner,
+      size,
+      gameId,
+      location
     };
     
     console.log(`[${requestId}] 成功解析NFT: ${nftId}`);
@@ -1565,10 +1621,11 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
 // 通过ID直接获取广告位信息
 export async function getAdSpaceById(adSpaceId: string): Promise<AdSpace | null> {
   try {
-    console.log(`通过ID获取广告位信息: ${adSpaceId}`);
+    console.log('开始获取广告位详情, ID:', adSpaceId);
     
-    if (!adSpaceId.startsWith('0x')) {
-      console.error('广告位ID格式无效:', adSpaceId);
+    // 如果是无效ID或示例ID
+    if (!adSpaceId || adSpaceId === '0x0') {
+      console.log('无效的广告位ID');
       return null;
     }
     
@@ -1580,69 +1637,186 @@ export async function getAdSpaceById(adSpaceId: string): Promise<AdSpace | null>
       options: {
         showContent: true,
         showDisplay: true,
-        showBcs: false,
-        showOwner: true,
-        showPreviousTransaction: true,
+        showType: true,
+        showOwner: true
       }
     });
     
-    console.log('获取到广告位对象:', adSpaceObject);
-    
-    // 检查对象响应的类型和存在性
-    if (!adSpaceObject || !adSpaceObject.data || !adSpaceObject.data.content) {
-      console.error('广告位对象响应无效或为空:', adSpaceObject);
+    // 检查广告位对象是否存在
+    if (!adSpaceObject.data || !adSpaceObject.data.content) {
+      console.error('广告位对象不存在或内容为空:', adSpaceObject);
       return null;
     }
     
-    const contentType = adSpaceObject.data.content.dataType;
-    console.log('广告位内容类型:', contentType);
+    console.log('获取到广告位对象');
     
-    if (contentType === 'moveObject') {
-      const adSpaceFields = adSpaceObject.data.content.fields as any;
-      console.log('广告位对象字段:', Object.keys(adSpaceFields || {}));
-      console.log('广告位详细内容:', adSpaceFields);
-      
-      // 安全地获取尺寸信息
-      let width = 300, height = 250;
-      if (adSpaceFields.size && typeof adSpaceFields.size === 'string' && adSpaceFields.size.includes('x')) {
-        const sizeParts = adSpaceFields.size.split('x');
-        if (sizeParts.length === 2) {
-          width = parseInt(sizeParts[0]) || 300;
-          height = parseInt(sizeParts[1]) || 250;
+    // 检查对象类型是否为AdSpace
+    const typeStr = adSpaceObject.data.type || '';
+    const isAdSpaceType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::ad_space::AdSpace`);
+    
+    if (!isAdSpaceType || adSpaceObject.data.content.dataType !== 'moveObject') {
+      console.error('对象不是AdSpace类型:', {
+        type: typeStr,
+        contentType: adSpaceObject.data.content.dataType
+      });
+      return null;
+    }
+    
+    // 提取广告位字段
+    const moveObject = adSpaceObject.data.content as { dataType: 'moveObject', fields: Record<string, any> };
+    const fields = moveObject.fields;
+    
+    console.log('广告位字段:', fields);
+    
+    // 提取尺寸信息 - 从size字段解析
+    let width = 300, height = 250;
+    if (fields.size && typeof fields.size === 'string' && fields.size.includes('x')) {
+      const sizeParts = fields.size.split('x');
+      if (sizeParts.length === 2) {
+        width = parseInt(sizeParts[0]) || 300;
+        height = parseInt(sizeParts[1]) || 250;
+      }
+    }
+    
+    // 提取价格信息 - 使用fixed_price字段
+    const price = fields.fixed_price || '0';
+    
+    // 提取租期天数 - 保持默认30天
+    const duration = 30;
+    
+    // 提取状态信息 - 使用is_available字段
+    const available = fields.is_available === true;
+    
+    // 提取位置信息
+    const location = fields.location || '未指定';
+    
+    // 提取game_id信息并构建名称
+    const gameId = fields.game_id || '';
+    const name = gameId ? `${gameId} 广告位` : `广告位 ${adSpaceId.substring(0, 8)}`;
+    
+    // 提取描述信息
+    const description = fields.location ? `位于 ${fields.location} 的广告位` : '广告位详情';
+    
+    // 获取NFT ID列表
+    let nft_ids: string[] = [];
+    // 从工厂对象中获取广告位的NFT ID列表
+    const factoryObject = await client.getObject({
+      id: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+      options: {
+        showContent: true,
+      }
+    });
+    
+    if (factoryObject.data?.content?.dataType === 'moveObject') {
+      const factoryFields = factoryObject.data.content.fields as any;
+      if (factoryFields && factoryFields.ad_spaces) {
+        const adSpaceEntries = Array.isArray(factoryFields.ad_spaces) 
+          ? factoryFields.ad_spaces 
+          : [factoryFields.ad_spaces];
+        
+        // 查找匹配的广告位条目
+        const matchingEntry = adSpaceEntries.find((entry: any) => {
+          const entryFields = entry.fields || entry;
+          const entryAdSpaceId = entryFields.ad_space_id?.id || entryFields.ad_space_id;
+          return entryAdSpaceId === adSpaceId;
+        });
+        
+        if (matchingEntry) {
+          const entryFields = matchingEntry.fields || matchingEntry;
+          if (entryFields.nft_ids && Array.isArray(entryFields.nft_ids)) {
+            // 提取NFT ID列表
+            nft_ids = entryFields.nft_ids.map((nftIdObj: any) => {
+              return typeof nftIdObj === 'string' ? nftIdObj : (nftIdObj.id || '');
+            }).filter(Boolean);
+            console.log(`从工厂对象中获取到广告位[${adSpaceId}]的NFT ID列表:`, nft_ids);
+          }
         }
       }
-      
-      // 检查广告位的可用状态和价格字段
-      const isAvailable = adSpaceFields.is_available !== undefined ? 
-        adSpaceFields.is_available : true;
-      const price = adSpaceFields.fixed_price || 
-        (adSpaceFields.price ? adSpaceFields.price : '0');
-        
-      console.log('广告位解析结果: 可用状态=', isAvailable, '价格=', price);
-      
-      // 构建广告位数据
-      const adSpace: AdSpace = {
-        id: adSpaceId,
-        name: adSpaceFields.game_id ? `${adSpaceFields.game_id} 广告位` : `广告位 ${adSpaceId.substring(0, 8)}`,
-        description: adSpaceFields.location ? `位于 ${adSpaceFields.location} 的广告位` : '广告位详情',
-        imageUrl: `https://via.placeholder.com/${width}x${height}?text=${adSpaceFields.game_id || 'AdSpace'}`,
-        price: price,
-        duration: 30, // 默认30天
-        dimension: {
-          width,
-          height,
-        },
-        owner: null, // 初始没有所有者
-        available: isAvailable,
-        location: adSpaceFields.location || '未知位置',
-      };
-      
-      console.log('成功构建广告位对象:', adSpace);
-      return adSpace;
-    } else {
-      console.warn('获取的广告位不是Move对象类型:', adSpaceObject.data?.content?.dataType);
-      return null;
     }
+    
+    // 构建广告位对象
+    const adSpace: AdSpace = {
+      id: adSpaceId,
+      name,
+      description,
+      imageUrl: '', // 广告位没有实际图片
+      price,
+      duration,
+      dimension: {
+        width,
+        height
+      },
+      owner: null, // 暂不处理所有者
+      available,
+      location,
+      nft_ids // 添加NFT ID列表
+    };
+    
+    console.log('成功解析广告位详情:', adSpace.id, adSpace.name);
+    
+    // 尝试获取广告位的创建者信息
+    try {
+      // 从工厂对象中查找对应的广告位条目，获取创建者信息
+      const factoryObject = await client.getObject({
+        id: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+        options: {
+          showContent: true,
+        }
+      });
+      
+     // 从工厂对象中寻找对应广告位的创建者信息
+     if (factoryObject.data?.content?.dataType === 'moveObject') {
+       const fields = factoryObject.data.content.fields as any;
+       
+       // 解析广告位条目
+       if (fields && fields.ad_spaces) {
+         let adSpaceEntries = [];
+         if (Array.isArray(fields.ad_spaces)) {
+           adSpaceEntries = fields.ad_spaces;
+         } else {
+           adSpaceEntries = [fields.ad_spaces];
+         }
+         
+         // 寻找匹配的广告位条目
+         const matchingEntry = adSpaceEntries.find((entry: any) => {
+           // 提取广告位ID
+           let entryAdSpaceId = null;
+           if (entry.ad_space_id) {
+             if (typeof entry.ad_space_id === 'string') {
+               entryAdSpaceId = entry.ad_space_id;
+             } else if (entry.ad_space_id.id) {
+               entryAdSpaceId = entry.ad_space_id.id;
+             }
+           } else if (entry.fields && entry.fields.ad_space_id) {
+             if (typeof entry.fields.ad_space_id === 'string') {
+               entryAdSpaceId = entry.fields.ad_space_id;
+             } else if (entry.fields.ad_space_id.id) {
+               entryAdSpaceId = entry.fields.ad_space_id.id;
+             }
+           }
+           
+           return entryAdSpaceId === adSpaceId;
+         });
+         
+         // 如果找到匹配的条目，添加创建者信息
+         if (matchingEntry) {
+           // 提取创建者信息
+           if (matchingEntry.creator) {
+             (adSpace as any).creator = matchingEntry.creator;
+             console.log(`为广告位详情添加创建者信息:`, matchingEntry.creator);
+           } else if (matchingEntry.fields && matchingEntry.fields.creator) {
+             (adSpace as any).creator = matchingEntry.fields.creator;
+             console.log(`为广告位详情添加创建者信息:`, matchingEntry.fields.creator);
+           }
+         }
+       }
+     }
+    } catch (error) {
+      console.error('获取广告位创建者信息失败:', error);
+      // 即使获取创建者信息失败，也返回广告位基本信息
+    }
+    
+    return adSpace;
   } catch (error) {
     console.error('通过ID获取广告位失败:', error);
     return null;

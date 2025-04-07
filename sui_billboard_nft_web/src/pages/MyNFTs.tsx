@@ -14,6 +14,7 @@ const MyNFTsPage: React.FC = () => {
   const [nfts, setNfts] = useState<BillboardNFT[]>([]);
   const [activeNfts, setActiveNfts] = useState<BillboardNFT[]>([]);
   const [expiredNfts, setExpiredNfts] = useState<BillboardNFT[]>([]);
+  const [pendingNfts, setPendingNfts] = useState<BillboardNFT[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -32,11 +33,32 @@ const MyNFTsPage: React.FC = () => {
         const userNfts = await getUserNFTs(account.address);
         setNfts(userNfts);
         
-        // 分离活跃和过期的NFT
-        const active = userNfts.filter(nft => nft.isActive);
-        const expired = userNfts.filter(nft => !nft.isActive);
+        // 当前时间
+        const now = new Date();
+        
+        // 分离活跃、待展示和过期的NFT
+        const active: BillboardNFT[] = [];
+        const pending: BillboardNFT[] = [];
+        const expired: BillboardNFT[] = [];
+        
+        userNfts.forEach(nft => {
+          const leaseStart = new Date(nft.leaseStart);
+          const leaseEnd = new Date(nft.leaseEnd);
+          
+          if (now < leaseStart) {
+            // 当前时间早于开始时间的为待展示
+            pending.push(nft);
+          } else if (now > leaseEnd || !nft.isActive) {
+            // 当前时间晚于结束时间或状态为非活跃的为过期
+            expired.push(nft);
+          } else {
+            // 当前时间在租期内且状态为活跃的为活跃
+            active.push(nft);
+          }
+        });
         
         setActiveNfts(active);
+        setPendingNfts(pending);
         setExpiredNfts(expired);
       } catch (err) {
         console.error('获取NFT失败:', err);
@@ -60,6 +82,19 @@ const MyNFTsPage: React.FC = () => {
         ) : (
           <div className="grid">
             {activeNfts.map(nft => (
+              <NFTCard key={nft.id} nft={nft} />
+            ))}
+          </div>
+        )
+      },
+      {
+        key: 'pending',
+        label: `待展示 (${pendingNfts.length})`,
+        children: pendingNfts.length === 0 ? (
+          <Empty description="没有待展示的NFT" />
+        ) : (
+          <div className="grid">
+            {pendingNfts.map(nft => (
               <NFTCard key={nft.id} nft={nft} />
             ))}
           </div>
