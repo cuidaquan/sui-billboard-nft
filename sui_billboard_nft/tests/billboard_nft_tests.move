@@ -516,9 +516,11 @@ module sui_billboard_nft::billboard_nft_tests {
             ts::return_shared(ad_space);
         };
         
-        // 设置时钟到期后的时间
+        // 修改：不再设置时钟到过期后的时间
+        // 在NFT仍然有效期内进行续租
+        // 偏移时间为原租期的一半
         let lease_seconds = LEASE_DAYS * 24 * 60 * 60;
-        clock::increment_for_testing(&mut clock, lease_seconds * 1000 + 1000); // 加1秒确保过期
+        clock::increment_for_testing(&mut clock, lease_seconds * 500); // 租期的一半时间
         
         // 买家续租广告位
         ts::next_tx(&mut scenario, BUYER);
@@ -754,6 +756,105 @@ module sui_billboard_nft::billboard_nft_tests {
         ts::next_tx(&mut scenario, ADMIN);
         {
             assert!(!ts::has_most_recent_shared<AdSpace>(), 0);
+        };
+        
+        // 清理
+        clock::destroy_for_testing(clock);
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = billboard_nft::ENftExpired)]
+    fun test_renew_expired_lease() {
+        let mut scenario = init_test();
+        
+        // 注册游戏开发者
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            billboard_nft::register_game_dev(&mut factory, GAME_DEV, ts::ctx(&mut scenario));
+            ts::return_shared(factory);
+        };
+        
+        // 创建时钟
+        let mut clock = clock::create_for_testing(ts::ctx(&mut scenario));
+        
+        // 游戏开发者创建广告位
+        ts::next_tx(&mut scenario, GAME_DEV);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            
+            billboard_nft::create_ad_space(
+                &mut factory,
+                string::utf8(b"Game123"),
+                string::utf8(b"Lobby"),
+                string::utf8(b"1024x768"),
+                DAILY_PRICE,
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+        };
+        
+        // 为买家创建资金
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let coin = coin::mint_for_testing<SUI>(TEST_PAYMENT * 2, ts::ctx(&mut scenario));
+            transfer::public_transfer(coin, BUYER);
+        };
+        
+        // 买家购买广告位
+        ts::next_tx(&mut scenario, BUYER);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            let mut ad_space = ts::take_shared<AdSpace>(&scenario);
+            let payment = ts::take_from_sender<Coin<SUI>>(&scenario);
+            
+            billboard_nft::purchase_ad_space(
+                &mut factory,
+                &mut ad_space,
+                payment,
+                string::utf8(b"TestBrand"),
+                string::utf8(b"https://example.com/ad.jpg"),
+                string::utf8(b"https://example.com"),
+                LEASE_DAYS,
+                &clock,
+                0, // 立即开始
+                ts::ctx(&mut scenario)
+            );
+            
+            ts::return_shared(factory);
+            ts::return_shared(ad_space);
+        };
+        
+        // 设置时钟到期后的时间
+        let lease_seconds = LEASE_DAYS * 24 * 60 * 60;
+        clock::increment_for_testing(&mut clock, lease_seconds * 1000 + 1000); // 加1秒确保过期
+        
+        // 买家尝试续租已过期的广告位，预期失败
+        ts::next_tx(&mut scenario, BUYER);
+        {
+            let mut factory = ts::take_shared<Factory>(&scenario);
+            let mut ad_space = ts::take_shared<AdSpace>(&scenario);
+            let mut nft = ts::take_from_sender<AdBoardNFT>(&scenario);
+            let payment = ts::take_from_sender<Coin<SUI>>(&scenario);
+            
+            // 这个调用应该失败，因为NFT已过期
+            billboard_nft::renew_lease(
+                &mut factory,
+                &mut ad_space,
+                &mut nft,
+                payment,
+                LEASE_DAYS,
+                &clock,
+                ts::ctx(&mut scenario)
+            );
+            
+            // 以下代码不会执行，因为上面的调用会失败
+            ts::return_shared(factory);
+            ts::return_shared(ad_space);
+            ts::return_to_sender(&scenario, nft);
         };
         
         // 清理

@@ -637,13 +637,99 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
   
   // 实际从链上获取数据
   try {
-    console.log('从链上获取NFT详情');
-    // 这里是真实代码，应该调用合约获取NFT详情
-    // 由于实际代码需要根据合约结构实现，这里只是一个示例框架
+    // 生成一个唯一的请求ID，用于日志跟踪
+    const requestId = new Date().getTime().toString();
+    console.log(`[${requestId}] 从链上获取NFT详情, ID: ${nftId}`);
+
+    if (!nftId || !nftId.startsWith('0x')) {
+      console.error(`[${requestId}] NFT ID格式无效:`, nftId);
+      return null;
+    }
+
+    const client = createSuiClient();
     
-    // TODO: 实现实际的合约调用逻辑
+    // 获取NFT对象
+    const nftObject = await client.getObject({
+      id: nftId,
+      options: {
+        showContent: true,
+        showDisplay: true,
+        showType: true,
+        showOwner: true
+      }
+    });
     
-    return null; // 返回null作为示例
+    console.log(`[${requestId}] 获取到NFT对象:`, nftObject.data?.objectId);
+    
+    // 检查对象是否存在且是NFT类型
+    if (!nftObject.data || !nftObject.data.content) {
+      console.error(`[${requestId}] NFT对象不存在或内容为空:`, nftObject);
+      return null;
+    }
+    
+    // 检查对象类型是否为AdBoardNFT
+    const typeStr = nftObject.data.type || '';
+    const isNftType = typeStr.includes(`${CONTRACT_CONFIG.PACKAGE_ID}::nft::AdBoardNFT`);
+    
+    if (!isNftType || nftObject.data.content.dataType !== 'moveObject') {
+      console.error(`[${requestId}] 对象不是AdBoardNFT类型:`, {
+        type: typeStr,
+        contentType: nftObject.data.content.dataType
+      });
+      return null;
+    }
+    
+    // 提取NFT字段
+    const moveObject = nftObject.data.content as { dataType: 'moveObject', fields: Record<string, any> };
+    const fields = moveObject.fields;
+    
+    console.log(`[${requestId}] NFT字段:`, Object.keys(fields));
+    
+    // 提取广告位ID
+    let adSpaceId = '';
+    if (fields.ad_space_id) {
+      adSpaceId = typeof fields.ad_space_id === 'string' ? fields.ad_space_id : 
+                  (fields.ad_space_id.id ? fields.ad_space_id.id : '');
+    }
+    
+    // 提取所有者地址
+    let owner = '';
+    if (nftObject.data.owner && typeof nftObject.data.owner === 'object') {
+      const ownerObj = nftObject.data.owner as any;
+      owner = ownerObj.AddressOwner || ownerObj.ObjectOwner || '';
+    }
+    
+    // 提取品牌名称
+    const brandName = fields.brand_name || '';
+    
+    // 提取内容URL
+    const contentUrl = fields.content_url || '';
+    
+    // 提取项目URL
+    const projectUrl = fields.project_url || '';
+    
+    // 提取租期时间
+    const leaseStart = fields.lease_start ? Number(fields.lease_start) * 1000 : Date.now();
+    const leaseEnd = fields.lease_end ? Number(fields.lease_end) * 1000 : (Date.now() + 30 * 24 * 60 * 60 * 1000);
+    
+    // 判断NFT是否有效/活跃
+    const isActive = leaseEnd > Date.now() && (fields.is_active === true || fields.is_active === undefined);
+    
+    // 构建NFT对象
+    const nft: BillboardNFT = {
+      id: nftId,
+      adSpaceId,
+      owner,
+      brandName,
+      contentUrl,
+      projectUrl,
+      leaseStart: new Date(leaseStart).toISOString(),
+      leaseEnd: new Date(leaseEnd).toISOString(),
+      isActive
+    };
+    
+    console.log(`[${requestId}] 成功解析NFT: ${nftId}`);
+    return nft;
   } catch (error) {
     console.error('获取NFT详情失败:', error);
     return null;
@@ -737,7 +823,7 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
     return txb;
   }
   
-  console.log('构建续租交易');
+  console.log('构建续租交易，参数:', params);
   
   // 获取Clock对象
   const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
@@ -745,8 +831,16 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
   // 获取广告位ID
   const adSpaceId = params.adSpaceId;
   
+  // 确保价格是字符串，并检查是否需要转换单位
+  let priceAmount = params.price;
+  if (Number(priceAmount) < 1000000) {
+    // 如果价格太小，可能是单位问题，转换为MIST (SUI的最小单位)
+    priceAmount = (Number(priceAmount) * 1000000000).toString();
+    console.log('价格单位转换:', params.price, '->', priceAmount);
+  }
+  
   // 创建SUI支付对象
-  const payment = txb.splitCoins(txb.gas, [txb.pure(params.price)]);
+  const payment = txb.splitCoins(txb.gas, [txb.pure(priceAmount)]);
   
   // 调用合约的renew_lease函数
   txb.moveCall({
@@ -759,6 +853,14 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
       txb.pure(params.leaseDays), // lease_days
       clockObj, // clock
     ],
+  });
+  
+  console.log('续租交易构建完成，参数:', {
+    factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+    adSpaceId: adSpaceId,
+    nftId: params.nftId,
+    price: priceAmount,
+    leaseDays: params.leaseDays
   });
   
   return txb;
@@ -908,53 +1010,55 @@ export async function calculateLeasePrice(adSpaceId: string, leaseDays: number):
     throw new Error('租赁天数必须在1-365天之间');
   }
   
-  // 获取广告位信息
-  const adSpace = await getAdSpaceById(adSpaceId);
-  
-  if (!adSpace || !adSpace.price) {
-    throw new Error('无法获取广告位信息或价格为空');
-  }
-  
-  console.log('获取到广告位信息，基础价格:', adSpace.price);
-  
-  // 确保价格是字符串类型，现在price表示1天的租赁价格
-  const dailyPrice = typeof adSpace.price === 'string' ? 
-    BigInt(adSpace.price) : BigInt(String(adSpace.price));
-  
-  console.log('日租赁价格(BigInt):', dailyPrice.toString());
-  
-  // 特殊情况处理
-  if (leaseDays === 1) {
-    return dailyPrice.toString();
-  }
-  
-  // 按照合约中的几何级数计算
-  const ratio = BigInt(997000); // 比例因子 0.997
-  const base = BigInt(1000000); // 基数表示 1.0
-  const minDailyFactor = BigInt(500000); // 最低日因子 0.5
-  
-  // 计算租赁总价
-  let totalPrice = dailyPrice; // 第一天的价格
-  let factor = base; // 初始因子为1.0
-  
-  // 从第二天开始计算
-  for (let i = 1; i < leaseDays; i++) {
-    // 计算当前因子
-    factor = (factor * ratio) / base;
+  try {
+    // 获取广告位信息
+    const adSpace = await getAdSpaceById(adSpaceId);
     
-    // 如果因子低于最低值(1/10)，则使用最低值
-    if (factor < minDailyFactor) {
-      // 增加剩余天数的最低价格
-      totalPrice = totalPrice + (dailyPrice * minDailyFactor * BigInt(leaseDays - i)) / base;
-      break;
+    if (!adSpace) {
+      throw new Error(`未找到广告位: ${adSpaceId}`);
     }
     
-    // 否则增加当前因子对应的价格
-    totalPrice = totalPrice + (dailyPrice * factor) / base;
+    console.log('广告位基础价格:', adSpace.price);
+    
+    // 使用几何级数公式计算租赁价格，与合约保持一致
+    const dailyPrice = BigInt(adSpace.price);  // Y - 一天的租赁价格
+    const ratio = BigInt(977000); // a - 比例因子，这里设为0.977000
+    const base = BigInt(1000000); // 用于表示小数的基数
+    const minDailyFactor = BigInt(500000); // 最低日因子(1/2)
+    
+    // 如果只租一天，直接返回每日价格
+    if (leaseDays === 1) {
+      return dailyPrice.toString();
+    }
+    
+    // 计算租赁总价
+    let totalPrice = dailyPrice; // 第一天的价格
+    let factor = base; // 初始因子为1.0
+    
+    // 从第二天开始计算
+    for (let i = 1; i < leaseDays; i++) {
+      // 计算当前因子
+      factor = (factor * ratio) / base;
+      
+      // 如果因子低于最低值，则使用最低值
+      if (factor < minDailyFactor) {
+        // 增加(租赁天数-i)天的最低价格
+        const remainingDays = BigInt(leaseDays - i);
+        totalPrice = totalPrice + ((dailyPrice * minDailyFactor * remainingDays) / base);
+        break;
+      }
+      
+      // 否则增加当前因子对应的价格
+      totalPrice = totalPrice + ((dailyPrice * factor) / base);
+    }
+    
+    console.log('几何级数计算的总租赁价格:', totalPrice.toString(), '(', formatSuiAmount(totalPrice.toString()), 'SUI)');
+    
+    return totalPrice.toString();
+  } catch (error) {
+    console.error('计算租赁价格失败:', error);
+    throw new Error(`计算租赁价格失败: ${error}`);
   }
-  
-  console.log('计算得到的租赁总价:', totalPrice.toString());
-  return totalPrice.toString();
 }
 
 // 格式化SUI金额

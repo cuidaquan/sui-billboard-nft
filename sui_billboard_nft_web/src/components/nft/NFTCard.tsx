@@ -80,8 +80,8 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft }) => {
         </div>
       </div>
       
-      <Link to={`/my-nfts/${nft.id}/renew`}>
-        <Button type="primary" block danger={isExpired}>续期</Button>
+      <Link to={`/my-nfts/${nft.id}`}>
+        <Button type="primary" block>查看详情</Button>
       </Link>
     </Card>
   );

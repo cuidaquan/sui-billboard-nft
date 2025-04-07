@@ -21,6 +21,7 @@ module sui_billboard_nft::billboard_nft {
     const ENotAdSpaceCreator: u64 = 9; // 不是广告位创建者
     const EAdSpaceAlreadyRented: u64 = 10; // 广告位已租用
     const EInsufficientPayment: u64 = 11; // 支付金额不足
+    const ENftExpired: u64 = 12; // NFT已过期
 
     // 一次性见证类型
     public struct BILLBOARD_NFT has drop {}
@@ -280,8 +281,10 @@ module sui_billboard_nft::billboard_nft {
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        // 验证NFT是否已过期
-        assert!(!nft::get_lease_status(nft, clock), ENotExpired);
+        // 修改验证逻辑：要求NFT未过期才能续租
+        // 原来：assert!(!nft::get_lease_status(nft, clock), ENotExpired);
+        // get_lease_status为true表示NFT仍然有效，为false表示已过期
+        assert!(nft::get_lease_status(nft, clock), ENftExpired);
 
         // 获取广告位租赁价格
         let price = ad_space::calculate_lease_price(ad_space, lease_days);
