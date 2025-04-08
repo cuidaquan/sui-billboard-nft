@@ -3,6 +3,12 @@ import { SuiClient } from '@mysten/sui.js/client';
 import { CONTRACT_CONFIG, NETWORKS, DEFAULT_NETWORK, USE_MOCK_DATA } from '../config/config';
 import { BillboardNFT, AdSpace, PurchaseAdSpaceParams, UpdateNFTContentParams, RenewNFTParams, CreateAdSpaceParams, RemoveGameDevParams } from '../types';
 
+// 模拟的游戏开发者列表（仅用于测试）
+export const MOCK_GAME_DEVS: string[] = [
+  '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  '0xfedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321'
+];
+
 // 创建 SUI 客户端
 export const createSuiClient = (network = DEFAULT_NETWORK) => {
   return new SuiClient({ url: NETWORKS[network].fullNodeUrl });
@@ -1211,49 +1217,82 @@ export function compareAddresses(address1: string, address2: string): boolean {
 }
 
 export async function getGameDevsFromFactory(factoryId: string): Promise<string[]> {
+  console.log('获取工厂中的游戏开发者列表, 工厂ID:', factoryId);
+  
+  if (USE_MOCK_DATA) {
+    console.log('使用模拟游戏开发者数据');
+    return MOCK_GAME_DEVS;
+  }
+  
   try {
-    console.log('从链上获取工厂对象数据，factoryId:', factoryId);
-    const client = createSuiClient();
+    const suiClient = createSuiClient();
     
-    // 获取工厂对象
-    const factoryObject = await client.getObject({
+    // 获取Factory对象
+    const factoryObj = await suiClient.getObject({
       id: factoryId,
       options: {
         showContent: true,
-        showDisplay: true,
-        showType: true,
       }
     });
     
-    console.log('获取到工厂对象:', JSON.stringify(factoryObject, null, 2));
-    
-    // 从工厂对象中获取游戏开发者列表
-    if (factoryObject.data?.content?.dataType === 'moveObject') {
-      const fields = factoryObject.data.content.fields as any;
-      console.log('工厂对象字段:', JSON.stringify(fields, null, 2));
+    if (factoryObj.data && factoryObj.data.content && 'fields' in factoryObj.data.content) {
+      const fields = factoryObj.data.content.fields as any;
       
-      if (fields && fields.game_devs) {
-        // 游戏开发者列表是向量类型
-        const gameDevs = fields.game_devs as string[];
-        console.log('原始游戏开发者列表:', gameDevs);
-        
-        // 确保所有地址都以小写形式存储，以便一致比较
-        const normalizedGameDevs = gameDevs.map(dev => dev.toLowerCase());
-        console.log('规范化后的游戏开发者列表:', normalizedGameDevs);
-        
-        return normalizedGameDevs;
+      if (fields.game_devs && Array.isArray(fields.game_devs)) {
+        console.log('获取到开发者列表:', fields.game_devs);
+        return fields.game_devs;
       } else {
-        console.warn('工厂对象中未找到game_devs字段，完整字段列表:', Object.keys(fields || {}));
+        console.log('Factory对象中无游戏开发者列表或格式不正确');
+        return [];
       }
     } else {
-      console.warn('工厂对象不是moveObject类型:', factoryObject.data?.content?.dataType);
+      console.error('无法获取Factory对象内容');
+      return [];
     }
-    
-    console.warn('未能找到游戏开发者列表，工厂对象结构:', factoryObject);
-    return [];
   } catch (error) {
     console.error('获取游戏开发者列表失败:', error);
     return [];
+  }
+}
+
+// 获取平台分成比例
+export async function getPlatformRatio(factoryId: string): Promise<number> {
+  console.log('获取平台分成比例, 工厂ID:', factoryId);
+  
+  if (USE_MOCK_DATA) {
+    console.log('使用模拟平台分成比例数据');
+    return 10; // 模拟分成比例为10%
+  }
+  
+  try {
+    const suiClient = createSuiClient();
+    
+    // 获取Factory对象
+    const factoryObj = await suiClient.getObject({
+      id: factoryId,
+      options: {
+        showContent: true,
+      }
+    });
+    
+    if (factoryObj.data && factoryObj.data.content && 'fields' in factoryObj.data.content) {
+      const fields = factoryObj.data.content.fields as any;
+      
+      if ('platform_ratio' in fields) {
+        const ratio = Number(fields.platform_ratio);
+        console.log('获取到平台分成比例:', ratio);
+        return ratio;
+      } else {
+        console.log('Factory对象中无平台分成比例字段或格式不正确');
+        return 10; // 默认为10%
+      }
+    } else {
+      console.error('无法获取Factory对象内容');
+      return 10; // 默认为10%
+    }
+  } catch (error) {
+    console.error('获取平台分成比例失败:', error);
+    return 10; // 默认为10%
   }
 }
 

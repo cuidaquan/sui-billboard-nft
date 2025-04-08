@@ -3,9 +3,9 @@ import { Typography, Tabs, Form, Input, Button, InputNumber, Select, message, Al
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { CreateAdSpaceParams, UserRole, RegisterGameDevParams, RemoveGameDevParams, AdSpace, BillboardNFT } from '../types';
 import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces, updateAdSpacePriceTx, deleteAdSpaceTx, getAdSpaceById, getNFTDetails } from '../utils/contract';
-import { CONTRACT_CONFIG } from '../config/config';
+import { CONTRACT_CONFIG, NETWORKS, DEFAULT_NETWORK } from '../config/config';
 import './Manage.scss';
-import { ReloadOutlined, PlusOutlined, AppstoreOutlined, DollarOutlined, DeleteOutlined, FormOutlined, UserAddOutlined, UserDeleteOutlined, TeamOutlined, ColumnWidthOutlined } from '@ant-design/icons';
+import { ReloadOutlined, PlusOutlined, AppstoreOutlined, DollarOutlined, DeleteOutlined, FormOutlined, UserAddOutlined, UserDeleteOutlined, TeamOutlined, ColumnWidthOutlined, LinkOutlined, SettingOutlined, BankOutlined } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
 const { TabPane } = Tabs;
@@ -156,6 +156,7 @@ const AdSpaceItem: React.FC<{
 const ManagePage: React.FC = () => {
   const [adSpaceForm] = Form.useForm();
   const [devRegisterForm] = Form.useForm();
+  const [platformRatioForm] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole>(UserRole.USER);
@@ -168,11 +169,34 @@ const ManagePage: React.FC = () => {
   const [newPrice, setNewPrice] = useState<number | null>(null);
   const [priceUpdateLoading, setPriceUpdateLoading] = useState<boolean>(false);
   const [deleteLoading, setDeleteLoading] = useState<boolean>(false);
+  const [currentPlatformRatio, setCurrentPlatformRatio] = useState<number>(10); // 默认平台分成比例为10%
+  const [platformRatioLoading, setPlatformRatioLoading] = useState<boolean>(false);
   
   const account = useCurrentAccount();
   const suiClient = useSuiClient();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
   
+  // 获取适合当前网络的 explorer URL
+  const getExplorerUrl = (type: 'address' | 'object', id: string): string => {
+    // 根据当前网络配置选择正确的浏览器链接
+    let baseUrl = '';
+    
+    if (DEFAULT_NETWORK === 'mainnet') {
+      baseUrl = 'https://suivision.xyz';
+    } else if (DEFAULT_NETWORK === 'testnet') {
+      baseUrl = 'https://testnet.suivision.xyz';
+    } else {
+      // 如果是其他网络，仍然使用配置的 explorerUrl
+      baseUrl = NETWORKS[DEFAULT_NETWORK].explorerUrl;
+    }
+    
+    if (type === 'address') {
+      return `${baseUrl}/address/${id}`;
+    } else {
+      return `${baseUrl}/object/${id}`;
+    }
+  };
+
   // 检查用户角色
   useEffect(() => {
     const checkUserRole = async () => {
@@ -189,10 +213,20 @@ const ManagePage: React.FC = () => {
         
         // 设置默认标签页: 管理员显示开发者管理, 开发者显示创建广告位
         if (role === UserRole.ADMIN) {
-          setActiveKey("devManage");
-          const { getGameDevsFromFactory } = await import('../utils/contract');
+          setActiveKey("platformManage");
+          const { getGameDevsFromFactory, getPlatformRatio } = await import('../utils/contract');
+          // 获取已注册开发者
           const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
           setRegisteredDevs(devs);
+          
+          // 获取当前平台分成比例
+          try {
+            const ratio = await getPlatformRatio(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+            setCurrentPlatformRatio(ratio);
+            platformRatioForm.setFieldsValue({ ratio });
+          } catch (err) {
+            console.error('获取平台分成比例失败:', err);
+          }
         } else if (role === UserRole.GAME_DEV) {
           setActiveKey("create");
           loadMyAdSpaces();
@@ -981,22 +1015,27 @@ const ManagePage: React.FC = () => {
         className="registered-devs-list"
         itemLayout="horizontal"
         dataSource={registeredDevs}
+        size="small"
+        bordered={false}
         renderItem={(item) => (
-          <List.Item className="dev-address-item">
-            <div className="address-content">
+          <List.Item className="dev-address-item" style={{ padding: '12px 0' }}>
+            <div className="address-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
               <Text
                 className="address-text"
                 copyable={{ tooltips: ['复制地址', '已复制!'] }}
-                onClick={() => window.open(`https://explorer.sui.io/address/${item}`, '_blank')}
+                onClick={() => window.open(getExplorerUrl('address', item), '_blank')}
+                style={{ cursor: 'pointer', fontFamily: 'monospace', fontSize: '13px' }}
+                ellipsis={{ tooltip: item }}
               >
                 {item}
               </Text>
-              <div className="button-group">
-                <Tooltip title="在Explorer中查看">
+              <div className="button-group" style={{ display: 'flex', gap: '8px' }}>
+                <Tooltip title="在浏览器中查看开发者">
                   <Button
                     size="small"
                     type="primary"
-                    onClick={() => window.open(`https://explorer.sui.io/address/${item}`, '_blank')}
+                    icon={<LinkOutlined />}
+                    onClick={() => window.open(getExplorerUrl('address', item), '_blank')}
                   >
                     查看
                   </Button>
@@ -1011,6 +1050,7 @@ const ManagePage: React.FC = () => {
                   <Button
                     size="small"
                     danger
+                    icon={<UserDeleteOutlined />}
                   >
                     移除
                   </Button>
@@ -1021,6 +1061,73 @@ const ManagePage: React.FC = () => {
         )}
       />
     );
+  };
+
+  // 处理更新平台分成比例
+  const handleUpdatePlatformRatio = async (values: { ratio: number }) => {
+    try {
+      setPlatformRatioLoading(true);
+      setError(null);
+      
+      // 验证比例在有效范围内 (0-100)
+      const ratio = values.ratio;
+      if (ratio < 0 || ratio > 100) {
+        setError('分成比例必须在0-100之间');
+        setPlatformRatioLoading(false);
+        return;
+      }
+      
+      // 构建交易参数
+      const params = {
+        factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
+        ratio
+      };
+      
+      // 显示交易执行中状态
+      message.loading({
+        content: '正在更新平台分成比例...',
+        key: 'updateRatio',
+        duration: 0 // 不自动关闭
+      });
+      
+      try {
+        // 导入更新平台分成比例的函数
+        const { updatePlatformRatioTx } = await import('../utils/contract');
+        // 创建交易
+        const txb = updatePlatformRatioTx(params);
+        // 执行交易
+        const result = await signAndExecute({
+          transaction: txb.serialize()
+        });
+        
+        console.log('更新平台分成比例交易执行成功:', result);
+        
+        // 显示成功消息
+        message.success({
+          content: '平台分成比例更新成功！',
+          key: 'updateRatio',
+          duration: 2
+        });
+        
+        // 更新状态
+        setCurrentPlatformRatio(ratio);
+      } catch (txError) {
+        console.error('更新平台分成比例交易执行失败:', txError);
+        const errorMsg = txError instanceof Error ? txError.message : String(txError);
+        setError(`更新平台分成比例失败: ${errorMsg}`);
+        message.error({
+          content: '平台分成比例更新失败',
+          key: 'updateRatio',
+          duration: 2
+        });
+      }
+    } catch (err) {
+      console.error('更新平台分成比例失败:', err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setError(`更新平台分成比例失败: ${errorMsg}`);
+    } finally {
+      setPlatformRatioLoading(false);
+    }
   };
 
   // 如果未连接钱包，显示提示
@@ -1177,57 +1284,154 @@ const ManagePage: React.FC = () => {
           ] : []),
           ...(userRole === UserRole.ADMIN ? [
             {
-              key: 'devManage',
-              label: <span><TeamOutlined /> 开发者管理</span>,
+              key: 'platformManage',
+              label: <span><SettingOutlined /> 平台管理</span>,
               children: (
                 <div>
-                  <Card 
-                    title="注册游戏开发者" 
-                    className="register-dev-card"
-                  >
-                    <Form
-                      form={devRegisterForm}
-                      layout="vertical"
-                      onFinish={handleRegisterGameDev}
-                      className="register-form"
-                    >
-                      <Form.Item
-                        name="developerAddress"
-                        label="开发者钱包地址"
-                        rules={[{ required: true, message: '请输入开发者钱包地址' }]}
+                  <Row gutter={[24, 24]}>
+                    <Col xs={24}>
+                      <Card 
+                        title={<><BankOutlined /> 工厂对象信息</>}
+                        className="factory-info-card"
+                        bordered={false}
                       >
-                        <Input placeholder="输入0x开头的地址" />
-                      </Form.Item>
-                      
-                      <Form.Item>
-                        <Button 
-                          type="primary" 
-                          htmlType="submit" 
-                          loading={loading}
-                          className="submit-button"
-                          icon={<UserAddOutlined />}
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+                          <Text strong style={{ marginRight: 8 }}>工厂对象 ID:</Text>
+                          <Text
+                            copyable={{ tooltips: ['复制地址', '已复制!'] }}
+                            style={{ marginRight: 8, fontFamily: 'monospace', fontSize: '13px' }}
+                            ellipsis={{ tooltip: CONTRACT_CONFIG.FACTORY_OBJECT_ID }}
+                          >
+                            {CONTRACT_CONFIG.FACTORY_OBJECT_ID}
+                          </Text>
+                          <Tooltip title="在浏览器中查看工厂对象">
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<LinkOutlined />}
+                              onClick={() => window.open(getExplorerUrl('object', CONTRACT_CONFIG.FACTORY_OBJECT_ID), '_blank')}
+                            >
+                              查看
+                            </Button>
+                          </Tooltip>
+                        </div>
+                        <Alert
+                          message="工厂对象说明"
+                          description="工厂对象是平台的核心智能合约，包含平台分成比例、广告位列表和开发者列表等信息"
+                          type="info"
+                          showIcon
+                        />
+                      </Card>
+                    </Col>
+                    
+                    <Col xs={24} md={12}>
+                      <Card 
+                        title={<><DollarOutlined /> 平台分成设置</>}
+                        className="platform-ratio-card"
+                        bordered={false}
+                      >
+                        <Form
+                          form={platformRatioForm}
+                          layout="vertical"
+                          onFinish={handleUpdatePlatformRatio}
+                          className="ratio-form"
+                          initialValues={{ ratio: currentPlatformRatio }}
                         >
-                          注册开发者
-                        </Button>
-                      </Form.Item>
-                    </Form>
-                  </Card>
-                  
-                  <div className="registered-devs-section">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Title level={4}>已注册的游戏开发者</Title>
-                      <Button 
-                        onClick={async () => {
-                          const { getGameDevsFromFactory } = await import('../utils/contract');
-                          const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
-                          setRegisteredDevs(devs);
-                        }}
-                        icon={<ReloadOutlined />}
+                          <Form.Item
+                            name="ratio"
+                            label="平台分成比例(%)"
+                            rules={[
+                              { required: true, message: '请输入平台分成比例' },
+                              { type: 'number', min: 0, max: 100, message: '分成比例必须在0-100之间' }
+                            ]}
+                          >
+                            <InputNumber 
+                              min={0}
+                              max={100}
+                              precision={0}
+                              placeholder="输入0-100之间的数字" 
+                              style={{ width: '100%' }}
+                            />
+                          </Form.Item>
+                          
+                          <Alert
+                            message="当前平台分成比例"
+                            description={`${currentPlatformRatio}%（当广告位被购买时，平台将收取总价的${currentPlatformRatio}%作为服务费）`}
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                          />
+                          
+                          <Form.Item>
+                            <Button 
+                              type="primary" 
+                              htmlType="submit" 
+                              loading={platformRatioLoading}
+                              className="submit-button"
+                              icon={<DollarOutlined />}
+                            >
+                              更新分成比例
+                            </Button>
+                          </Form.Item>
+                        </Form>
+                      </Card>
+                    </Col>
+                    
+                    <Col xs={24} md={12}>
+                      <Card 
+                        title={<><UserAddOutlined /> 注册游戏开发者</>}
+                        className="register-dev-card"
+                        bordered={false}
                       >
-                        刷新
-                      </Button>
-                    </div>
-                    {renderRegisteredDevs()}
+                        <Form
+                          form={devRegisterForm}
+                          layout="vertical"
+                          onFinish={handleRegisterGameDev}
+                          className="register-form"
+                        >
+                          <Form.Item
+                            name="devAddress"
+                            label="开发者钱包地址"
+                            rules={[{ required: true, message: '请输入开发者钱包地址' }]}
+                          >
+                            <Input placeholder="输入0x开头的地址" />
+                          </Form.Item>
+                          
+                          <Form.Item>
+                            <Button 
+                              type="primary" 
+                              htmlType="submit" 
+                              loading={loading}
+                              className="submit-button"
+                              icon={<UserAddOutlined />}
+                            >
+                              注册开发者
+                            </Button>
+                          </Form.Item>
+                        </Form>
+                      </Card>
+                    </Col>
+                  </Row>
+                  
+                  <div className="registered-devs-section" style={{ marginTop: 24 }}>
+                    <Card
+                      title={<><TeamOutlined /> 已注册的游戏开发者</>}
+                      bordered={false}
+                      extra={
+                        <Button 
+                          onClick={async () => {
+                            const { getGameDevsFromFactory } = await import('../utils/contract');
+                            const devs = await getGameDevsFromFactory(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+                            setRegisteredDevs(devs);
+                          }}
+                          icon={<ReloadOutlined />}
+                        >
+                          刷新
+                        </Button>
+                      }
+                    >
+                      {renderRegisteredDevs()}
+                    </Card>
                   </div>
                 </div>
               )

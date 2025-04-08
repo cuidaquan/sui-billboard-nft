@@ -4,6 +4,23 @@
   padding: 20px;
   position: relative;
   
+  // 定义全局CSS变量
+  --primary-gradient: linear-gradient(145deg, #4e63ff, #6e56cf);
+  --primary-gradient-hover: linear-gradient(145deg, #5a6fff, #7a62df);
+  --card-header-gradient: linear-gradient(145deg, #ffffff, #f5f7ff);
+  --box-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --box-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --border-radius-md: 6px;
+  --border-radius-lg: 8px;
+  --text-dark: rgba(0, 0, 0, 0.85);
+  --text-medium: rgba(0, 0, 0, 0.65);
+  --text-light: rgba(0, 0, 0, 0.45);
+  --primary: #4e63ff;
+  --primary-light: #6e80ff;
+  --background-content: #ffffff;
+  --animation-speed-fast: 0.2s;
+  --animation-speed-normal: 0.3s;
+  
   // 粒子背景动画
   .particles-background {
     position: absolute;
@@ -160,7 +177,10 @@
     }
   }
   
-  .register-dev-card {
+  .register-dev-card,
+  .factory-info-card,
+  .platform-ratio-card,
+  .registered-devs-section .ant-card {
     margin-bottom: 30px;
     border-radius: var(--border-radius-lg);
     box-shadow: var(--box-shadow-sm);
@@ -171,7 +191,7 @@
     .ant-card-head {
       border-bottom: 1px solid rgba(0, 0, 0, 0.06);
       padding: 0 24px;
-      background: linear-gradient(145deg, #ffffff, #f5f7ff);
+      background: var(--card-header-gradient);
       
       .ant-card-head-title {
         font-size: 16px;
@@ -179,45 +199,51 @@
         font-weight: 600;
         color: var(--text-dark);
       }
+      
+      .ant-card-extra {
+        padding: 16px 0;
+      }
     }
     
     .ant-card-body {
       padding: 24px;
     }
+  }
+  
+  .register-form,
+  .ratio-form {
+    margin-top: 0;
     
-    .register-form {
-      margin-top: 0;
+    .ant-form-item-label > label {
+      font-weight: 500;
+      color: var(--text-dark);
+    }
+    
+    .ant-input,
+    .ant-input-number {
+      height: 44px;
+      border-radius: var(--border-radius-md);
+      border-color: #e0e6f5;
       
-      .ant-form-item-label > label {
-        font-weight: 500;
-        color: var(--text-dark);
+      &:hover, &:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(78, 99, 255, 0.1);
       }
+    }
+    
+    .submit-button {
+      width: 100%;
+      height: 44px;
+      border-radius: var(--border-radius-md);
+      font-weight: 600;
+      background: var(--primary-gradient);
+      border: none;
+      box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
       
-      .ant-input {
-        height: 44px;
-        border-radius: var(--border-radius-md);
-        border-color: #e0e6f5;
-        
-        &:hover, &:focus {
-          border-color: var(--primary);
-          box-shadow: 0 0 0 2px rgba(78, 99, 255, 0.1);
-        }
-      }
-      
-      .submit-button {
-        width: 100%;
-        height: 44px;
-        border-radius: var(--border-radius-md);
-        font-weight: 600;
-        background: var(--primary-gradient);
-        border: none;
-        box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
-        
-        &:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
-          background: var(--primary-gradient-hover);
-        }
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
+        background: var(--primary-gradient-hover);
       }
     }
   }
@@ -258,20 +284,12 @@
     margin-top: 32px;
     animation: slideUp var(--animation-speed-normal) ease-in-out;
     
-    h4 {
-      margin-bottom: 16px;
-      font-weight: 600;
-      color: var(--text-dark);
-      font-size: 18px;
-    }
-    
     .registered-devs-list {
-      background: var(--background-content);
-      border-radius: var(--border-radius-lg);
-      margin-top: 16px;
-      overflow: hidden;
-      box-shadow: var(--box-shadow-sm);
-      border: 1px solid rgba(0, 0, 0, 0.06);
+      margin-top: 0;
+      background: transparent;
+      border-radius: 0;
+      box-shadow: none;
+      border: none;
       
       .dev-address-item {
         padding: 16px;
@@ -344,7 +362,7 @@
       padding: 48px 0;
       background: #f9f9f9;
       border-radius: var(--border-radius-lg);
-      margin-top: 16px;
+      margin-top: 0;
       
       .ant-empty-image {
         height: 80px;
@@ -574,7 +592,7 @@
       overflow: hidden;
       
       .ant-modal-header {
-        background: linear-gradient(145deg, #ffffff, #f5f7ff);
+        background: var(--card-header-gradient);
         border-bottom: 1px solid rgba(0, 0, 0, 0.06);
         
         .ant-modal-title {
