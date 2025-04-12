@@ -1,5 +1,5 @@
-import { SuiClient as SuiJsClient } from '@mysten/sui.js/client';
-import { type SuiClient as DappKitSuiClient } from '@mysten/sui/client';
+import { SuiClient } from '@mysten/sui.js/client';
+import { type SuiClient as WalletSuiClient } from '@mysten/wallet-standard/node_modules/@mysten/sui/client';
 import { UserRole } from '../types';
 import { CONTRACT_CONFIG } from '../config/config';
 import { SuiObjectResponse, SuiMoveObject } from '@mysten/sui.js/client';
@@ -12,7 +12,7 @@ import { compareAddresses } from './contract';
  * @param address 用户钱包地址（用于发送交易）
  * @returns 是否拥有管理员权限
  */
-export async function checkIsAdmin(client: SuiJsClient | DappKitSuiClient, address: string): Promise<boolean> {
+export async function checkIsAdmin(client: SuiClient | WalletSuiClient, address: string): Promise<boolean> {
   try {
     // 验证合约配置
     if (!CONTRACT_CONFIG.PACKAGE_ID || !CONTRACT_CONFIG.MODULE_NAME || !CONTRACT_CONFIG.FACTORY_OBJECT_ID) {
@@ -138,7 +138,7 @@ export async function checkIsGameDev(address: string | undefined): Promise<boole
  * @param address 用户钱包地址
  * @returns 用户角色
  */
-export async function checkUserRole(client: SuiJsClient | DappKitSuiClient, address: string): Promise<UserRole> {
+export async function checkUserRole(client: SuiClient | WalletSuiClient, address: string): Promise<UserRole> {
   console.log('=== 开始检查用户角色 ===');
   console.log('钱包地址:', address);
   console.log('合约配置:', {

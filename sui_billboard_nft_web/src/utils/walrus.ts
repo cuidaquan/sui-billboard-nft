@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { WalrusClient } from '@mysten/walrus';
-import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
 
 /**
  * Walrus服务类：负责与Walrus存储交互
