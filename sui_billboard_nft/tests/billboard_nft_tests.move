@@ -6,6 +6,7 @@ module sui_billboard_nft::billboard_nft_tests {
     use sui::clock;
     use sui::transfer;
     use std::string;
+    use std::vector;
     
     // 导入特殊的one_time_witness模块，用于测试使用
     use sui_billboard_nft::billboard_nft;
@@ -182,6 +183,8 @@ module sui_billboard_nft::billboard_nft_tests {
                 LEASE_DAYS,
                 &clock,
                 0, // 立即开始
+                vector::empty<u8>(), // 空的blob_id，表示没有使用Walrus
+                string::utf8(b"external"), // 使用外部URL
                 ts::ctx(&mut scenario)
             );
             
@@ -257,6 +260,8 @@ module sui_billboard_nft::billboard_nft_tests {
                 LEASE_DAYS,
                 &clock,
                 0, // 立即开始
+                vector::empty<u8>(), // 空的blob_id，表示没有使用Walrus
+                string::utf8(b"external"), // 使用外部URL
                 ts::ctx(&mut scenario)
             );
             
@@ -272,6 +277,8 @@ module sui_billboard_nft::billboard_nft_tests {
             billboard_nft::update_ad_content(
                 &mut nft,
                 string::utf8(b"https://example.com/new_ad.jpg"),
+                vector::empty<u8>(), // 空的blob_id，表示没有使用Walrus
+                string::utf8(b"external"), // 使用外部URL
                 &clock,
                 ts::ctx(&mut scenario)
             );
@@ -509,6 +516,8 @@ module sui_billboard_nft::billboard_nft_tests {
                 LEASE_DAYS,
                 &clock,
                 0, // 立即开始
+                vector::empty<u8>(), // 空的blob_id，表示没有使用Walrus
+                string::utf8(b"external"), // 使用外部URL
                 ts::ctx(&mut scenario)
             );
             
@@ -821,6 +830,8 @@ module sui_billboard_nft::billboard_nft_tests {
                 LEASE_DAYS,
                 &clock,
                 0, // 立即开始
+                vector::empty<u8>(), // 空的blob_id，表示没有使用Walrus
+                string::utf8(b"external"), // 使用外部URL
                 ts::ctx(&mut scenario)
             );
             

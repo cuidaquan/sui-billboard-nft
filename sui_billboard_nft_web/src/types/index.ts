@@ -36,11 +36,15 @@ export interface PurchaseAdSpaceParams {
   price: string;
   leaseDays: number;
   startTime?: number; // 可选，指定开始时间的Unix时间戳，不提供则使用当前时间
+  blobId?: string;           // 新增：Walrus中的blob ID
+  storageSource?: string;    // 新增：存储来源标识
 }
 
 export interface UpdateNFTContentParams {
   nftId: string;
   contentUrl: string;
+  blobId?: string;           // 新增：Walrus中的blob ID
+  storageSource?: string;    // 新增：存储来源标识
 }
 
 export interface RenewNFTParams {
@@ -66,6 +70,8 @@ export interface BillboardNFT {
   leaseStart: string;
   leaseEnd: string;
   isActive: boolean;
+  blobId?: string;           // 新增：Walrus中的blob ID
+  storageSource?: 'walrus' | 'external'; // 新增：存储来源
   creationTime?: string; // 创建时间
   lastRenewalTime?: string; // 最后续约时间
   price?: string; // NFT购买价格

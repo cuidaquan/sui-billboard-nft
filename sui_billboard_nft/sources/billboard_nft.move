@@ -6,7 +6,8 @@ module sui_billboard_nft::billboard_nft {
     use sui::coin::{Self, Coin};
     use sui::sui::SUI;
     use sui::clock::Clock;
-    use std::string::String;
+    use std::string::{Self, String};
+    use std::option::{Self, Option};
     
     use sui_billboard_nft::ad_space::{Self, AdSpace};
     use sui_billboard_nft::nft;
@@ -176,7 +177,7 @@ module sui_billboard_nft::billboard_nft {
         ad_space::delete_ad_space(ad_space, ctx);
     }
 
-    // 购买广告位并创建NFT
+    // 购买广告位并创建NFT - 添加blob_id和storage_source参数
     public entry fun purchase_ad_space(
         factory: &mut Factory,
         ad_space: &mut AdSpace,
@@ -187,6 +188,8 @@ module sui_billboard_nft::billboard_nft {
         lease_days: u64,
         clock: &Clock,
         start_time: u64,
+        blob_id: vector<u8>,      // 添加：blob_id参数（序列化后的Option<String>）
+        storage_source: String,   // 添加：storage_source参数
         ctx: &mut TxContext
     ) {
         // 验证广告位是否可用
@@ -225,7 +228,14 @@ module sui_billboard_nft::billboard_nft {
         // 转账给游戏开发者
         transfer::public_transfer(game_dev_payment, ad_space::get_creator(ad_space));
 
-        // 创建NFT - 根据start_time是否为0决定创建方式
+        // 解析blob_id参数
+        let blob_id_option = if (vector::is_empty(&blob_id)) {
+            option::none()
+        } else {
+            option::some(string::utf8(blob_id))
+        };
+
+        // 创建NFT - 添加blob_id和storage_source参数
         let nft = nft::create_nft(
             ad_space,
             brand_name,
@@ -233,6 +243,8 @@ module sui_billboard_nft::billboard_nft {
             project_url,
             lease_days,
             start_time,
+            blob_id_option,     // 传递blob_id
+            storage_source,     // 传递storage_source
             clock,
             ctx
         );
@@ -253,14 +265,24 @@ module sui_billboard_nft::billboard_nft {
         transfer::public_transfer(nft, tx_context::sender(ctx));
     }
 
-    // 更新广告内容
+    // 更新广告内容 - 添加blob_id和storage_source参数
     public entry fun update_ad_content(
         nft: &mut nft::AdBoardNFT,
         content_url: String,
+        blob_id: vector<u8>,      // 添加：blob_id参数（序列化后的Option<String>）
+        storage_source: String,   // 添加：storage_source参数
         clock: &Clock,
         ctx: &mut TxContext
     ) {
-        nft::update_content(nft, content_url, clock, ctx)
+        // 解析blob_id参数
+        let blob_id_option = if (vector::is_empty(&blob_id)) {
+            option::none()
+        } else {
+            option::some(string::utf8(blob_id))
+        };
+
+        // 调用nft模块的更新函数，传递blob_id和storage_source
+        nft::update_content(nft, content_url, blob_id_option, storage_source, clock, ctx)
     }
 
     // 暴露广告位价格计算接口

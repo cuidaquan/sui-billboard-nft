@@ -6,6 +6,8 @@
     "@ant-design/icons": "^6.0.0",
     "@mysten/dapp-kit": "^0.15.2",
     "@mysten/sui.js": "^0.54.1",
+    "@mysten/wallet-kit": "^0.8.6",
+    "@mysten/walrus": "^0.0.13",
     "@tanstack/react-query": "^5.71.5",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -23,7 +25,6 @@
     "react-router-dom": "^7.4.1",
     "react-scripts": "5.0.1",
     "sass": "^1.86.2",
-    "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -49,5 +50,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "typescript": "^4.9.5"
   }
 }
