@@ -48,114 +48,26 @@ const AppHeader: React.FC = () => {
     checkRole();
   }, [currentAccount, suiClient]);
   
-  // 显示钱包选择模态框
-  const showModal = () => {
-    // 先强制断开任何现有连接，然后再显示模态框
-    forceDisconnectWallet(() => {
-      // 在断开连接回调后显示模态框
-    setIsModalVisible(true);
-    });
-  };
-  
-  // 强制断开钱包并清除所有缓存
-  const forceDisconnectWallet = (callback?: () => void) => {
-    try {
-      console.log('强制断开钱包连接开始...');
-      
-      // 执行断开连接操作
-      if (currentAccount) {
-        disconnectWallet();
-      }
-      
-      console.log('清除缓存...');
-      // 彻底清除所有缓存
-      clearWalletCache();
-      
-      // 重置状态
-      setUserRole(UserRole.USER);
-      setForceUpdateKey(prev => prev + 1);
-      
-      console.log('强制断开钱包完成');
-      
-      // 延迟执行回调，确保断开操作已完成
-      setTimeout(() => {
-        callback && callback();
-      }, 300);
-    } catch (error) {
-      console.error('强制断开钱包错误:', error);
-      // 即使出错也尝试调用回调
-      callback && callback();
-    }
-  };
-  
-  // 清除钱包缓存的函数
-  const clearWalletCache = () => {
-    console.log('开始清除钱包缓存...');
-    
-    try {
-      // 定义可能与钱包相关的键名部分
-      const walletRelatedKeys = ['wallet', 'sui', 'dapp', 'connect', 'account', 'adapter', 'role'];
-      
-      // 清除localStorage中的所有钱包相关数据
-      localStorage.removeItem('userRole');
-      
-      // 尝试清除localStorage中所有可能的钱包相关键
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) {
-          const lowerKey = key.toLowerCase();
-          if (walletRelatedKeys.some(wk => lowerKey.includes(wk))) {
-            console.log('清除localStorage键:', key);
-            localStorage.removeItem(key);
-            // 重新检查索引，因为我们删除了一个项目
-            i--;
-          }
-        }
-      }
-      
-      // 同样清除sessionStorage
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key) {
-          const lowerKey = key.toLowerCase();
-          if (walletRelatedKeys.some(wk => lowerKey.includes(wk))) {
-            console.log('清除sessionStorage键:', key);
-            sessionStorage.removeItem(key);
-            // 重新检查索引，因为我们删除了一个项目
-            i--;
-          }
-        }
-      }
-      
-      console.log('钱包缓存清除完成');
-    } catch (error) {
-      console.error('清除钱包缓存错误:', error);
-    }
-  };
-  
   // 显示钱包选择模态框或直接连接
   const connectWalletHandler = () => {
     try {
-      // 强制断开当前连接
-      forceDisconnectWallet(() => {
-        // 检查可用钱包
-        if (wallets.length === 1) {
-          // 只有一个钱包，直接连接
-          console.log('只有一个钱包，直接连接:', wallets[0].name);
-          connectWithWallet(wallets[0]);
-        } else if (wallets.length > 1) {
-          // 多个钱包，显示选择模态框
-          setIsModalVisible(true);
-        } else {
-          // 没有钱包，显示警告
-          notification.warning({
-            message: '未检测到钱包扩展',
-            description: '请安装支持 Sui 的钱包扩展，如 Sui Wallet 或 Ethos Wallet。',
-            duration: 10,
-            placement: 'topRight'
-          });
-        }
-      });
+      // 检查可用钱包
+      if (wallets.length === 1) {
+        // 只有一个钱包，直接连接
+        console.log('只有一个钱包，直接连接:', wallets[0].name);
+        connectWithWallet(wallets[0]);
+      } else if (wallets.length > 1) {
+        // 多个钱包，显示选择模态框
+        setIsModalVisible(true);
+      } else {
+        // 没有钱包，显示警告
+        notification.warning({
+          message: '未检测到钱包扩展',
+          description: '请安装支持 Sui 的钱包扩展，如 Sui Wallet 或 Ethos Wallet。',
+          duration: 10,
+          placement: 'topRight'
+        });
+      }
     } catch (error) {
       console.error('处理钱包连接错误:', error);
       message.error('钱包连接操作失败');
@@ -166,10 +78,9 @@ const AppHeader: React.FC = () => {
   const connectWithWallet = (wallet: any) => {
     console.log('连接钱包:', wallet.name);
     
-    // 强制弹出钱包选择窗口
     connectWallet({ 
       wallet,
-      silent: false // 设置silent为false，确保每次都弹出钱包窗口
+      silent: false
     });
     
     message.loading({

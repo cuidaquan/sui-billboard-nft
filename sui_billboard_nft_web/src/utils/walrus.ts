@@ -1,6 +1,11 @@
 // @ts-nocheck
 import { WalrusClient } from '@mysten/walrus';
-import { getFullnodeUrl, SuiClient } from '@mysten/sui.js/client';
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { type SuiTransactionBlockResponse } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
+
+export type SignFunction = (tx: any) => Promise<any>;
 
 /**
  * Walrus服务类：负责与Walrus存储交互
@@ -12,7 +17,8 @@ export class WalrusService {
   private readonly RETRY_DELAY = 1000; // 1秒
   
   constructor() {
-    const network = process.env.REACT_APP_NETWORK || 'testnet';
+    const network = process.env.REACT_APP_WALRUS_ENVIRONMENT || 'testnet';
+    console.log('初始化 Walrus 服务，网络环境:', network);
     
     // 初始化 SUI 客户端
     this.suiClient = new SuiClient({
@@ -30,6 +36,8 @@ export class WalrusService {
         fetch: this.fetchWithRetry.bind(this)
       }
     });
+    
+    console.log('Walrus 客户端初始化完成');
   }
 
   /**
@@ -68,10 +76,16 @@ export class WalrusService {
    * 上传文件到Walrus
    * @param file 要上传的文件
    * @param duration 存储时长(秒)
-   * @param signer 交易签名者
+   * @param address 钱包地址
+   * @param signAndExecute 签名并执行交易的函数
    * @returns Promise<{blobId: string, url: string}>
    */
-  async uploadFile(file: File, duration: number, signer: any): Promise<{ blobId: string, url: string }> {
+  async uploadFile(
+    file: File, 
+    duration: number, 
+    address: string,
+    signAndExecute: SignFunction
+  ): Promise<{ blobId: string, url: string }> {
     try {
       console.log(`正在上传文件到Walrus: ${file.name}, 大小: ${file.size} 字节`);
       
@@ -88,18 +102,32 @@ export class WalrusService {
         const tx = await this.client.createStorageTransaction({
           size: uint8Array.length,
           epochs: epochs,
-          owner: signer.getAddress()
+          owner: address
         });
         
         // 执行存储创建交易
-        const storageResult = await signer.signTransactionBlock(tx);
+        try {
+          const storageResult = await signAndExecute(tx);
+          
+          if (!storageResult) {
+            throw new Error('存储创建交易失败');
+          }
+          
+          console.log('存储创建交易成功:', storageResult);
+        } catch (error) {
+          console.error('存储创建交易错误:', error);
+          throw new Error('存储创建交易失败: ' + (error.message || '未知错误'));
+        }
         
         // 上传文件
         const { blobId } = await this.client.writeBlob({
           blob: uint8Array,
           deletable: true,
           epochs: epochs,
-          signer: signer,
+          signer: {
+            getAddress: () => address,
+            signTransactionBlock: signAndExecute
+          },
           attributes: {
             filename: file.name,
             contentType: file.type,
@@ -107,10 +135,17 @@ export class WalrusService {
           }
         });
         
+        if (!blobId) {
+          throw new Error('文件上传失败：未获取到 blobId');
+        }
+        
         console.log(`文件上传成功, Blob ID: ${blobId}`);
         
         // 获取blob URL
         const url = await this.client.getBlobUrl(blobId);
+        if (!url) {
+          throw new Error('获取文件URL失败');
+        }
         
         return { blobId, url };
       } catch (error) {
@@ -118,13 +153,13 @@ export class WalrusService {
           console.log('遇到可重试错误，重置客户端后重试...');
           this.client.reset();
           // 重新尝试上传
-          return this.uploadFile(file, duration, signer);
+          return this.uploadFile(file, duration, address, signAndExecute);
         }
         throw error;
       }
     } catch (error) {
       console.error('Walrus上传错误:', error);
-      throw new Error(`上传到Walrus失败: ${error.message}`);
+      throw new Error(`上传到Walrus失败: ${error.message || '未知错误'}`);
     }
   }
   
