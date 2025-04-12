@@ -5,7 +5,7 @@ import type { RcFile } from 'antd/lib/upload';
 import { walrusService } from '../../utils/walrus';
 import './WalrusUpload.scss';
 import { useWalletKit } from '@mysten/wallet-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { type TransactionBlock } from '@mysten/sui.js/transactions';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 
 interface WalrusUploadProps {
@@ -141,12 +141,19 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
       // 计算存储时间 (从现在到租期结束)
       const storageDuration = leaseDays * 24 * 60 * 60; // 秒数
       
-      // 创建signer
+      // 获取当前网络配置
+      const network = process.env.REACT_APP_NETWORK || 'testnet';
+      
+      // 创建符合 SDK 要求的 signer 对象
       const signer = {
-        signAndExecuteTransactionBlock: async (tx: any) => {
-          return signAndExecuteTransactionBlock({ transactionBlock: tx });
-        },
-        toSuiAddress: () => currentAccount.address
+        getAddress: () => currentAccount.address,
+        signTransactionBlock: async (tx: any) => {
+          return signAndExecuteTransactionBlock({ 
+            transactionBlock: tx,
+            chain: `sui:${network}`,
+            options: { showEffects: true }
+          });
+        }
       };
       
       // 执行实际上传 (可能需要数秒至数十秒)

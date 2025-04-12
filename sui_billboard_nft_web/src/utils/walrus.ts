@@ -84,6 +84,17 @@ export class WalrusService {
       console.log(`文件将存储 ${epochs} 个epochs（约${epochs}天）`);
       
       try {
+        // 创建存储对象
+        const tx = await this.client.createStorageTransaction({
+          size: uint8Array.length,
+          epochs: epochs,
+          owner: signer.getAddress()
+        });
+        
+        // 执行存储创建交易
+        const storageResult = await signer.signTransactionBlock(tx);
+        
+        // 上传文件
         const { blobId } = await this.client.writeBlob({
           blob: uint8Array,
           deletable: true,
