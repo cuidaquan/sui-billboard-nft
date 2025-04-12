@@ -4,6 +4,9 @@ import { UploadOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-de
 import type { RcFile } from 'antd/lib/upload';
 import { walrusService } from '../../utils/walrus';
 import './WalrusUpload.scss';
+import { useWalletKit } from '@mysten/wallet-kit';
+import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { useCurrentAccount } from '@mysten/dapp-kit';
 
 interface WalrusUploadProps {
   onChange?: (data: { url: string, blobId?: string, storageSource: string }) => void;
@@ -24,6 +27,10 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
   initialBlobId = '',
   initialStorageSource = 'external'
 }) => {
+  // 获取钱包工具
+  const { signAndExecuteTransactionBlock } = useWalletKit();
+  const currentAccount = useCurrentAccount();
+  
   // 存储选择
   const [storageSource, setStorageSource] = useState<'external' | 'walrus'>(
     initialStorageSource === 'walrus' ? 'walrus' : 'external'
@@ -121,7 +128,10 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
   
   // 上传到Walrus
   const handleUploadToWalrus = async () => {
-    if (!uploadedFile) return;
+    if (!uploadedFile || !currentAccount) {
+      message.error('请先连接钱包并选择文件');
+      return;
+    }
     
     try {
       setUploading(true);
@@ -131,10 +141,19 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
       // 计算存储时间 (从现在到租期结束)
       const storageDuration = leaseDays * 24 * 60 * 60; // 秒数
       
+      // 创建signer
+      const signer = {
+        signAndExecuteTransactionBlock: async (tx: any) => {
+          return signAndExecuteTransactionBlock({ transactionBlock: tx });
+        },
+        toSuiAddress: () => currentAccount.address
+      };
+      
       // 执行实际上传 (可能需要数秒至数十秒)
       const { blobId, url } = await walrusService.uploadFile(
         uploadedFile,
-        storageDuration
+        storageDuration,
+        signer
       );
       
       // 确保进度条到100%
@@ -160,9 +179,10 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
       
     } catch (error) {
       console.error('上传到Walrus失败:', error);
-      message.error('上传到Walrus失败，请重试');
+      message.error('上传到Walrus失败: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
   

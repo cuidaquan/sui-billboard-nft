@@ -1,85 +1,115 @@
 // @ts-nocheck
 import { WalrusClient } from '@mysten/walrus';
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 
 /**
  * Walrus服务类：负责与Walrus存储交互
  */
 export class WalrusService {
-  private client: any;
-  private baseUrl: string;
+  private client: WalrusClient;
+  private suiClient: SuiClient;
+  private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAY = 1000; // 1秒
   
   constructor() {
-    // 初始化Walrus客户端
     const network = process.env.REACT_APP_NETWORK || 'testnet';
-    this.client = new WalrusClient({
-      network: network
+    
+    // 初始化 SUI 客户端
+    this.suiClient = new SuiClient({
+      url: getFullnodeUrl(network),
     });
     
-    // 设置baseUrl
-    this.baseUrl = network === 'mainnet' 
-      ? 'https://walrus.mainnet.sui.io' 
-      : 'https://walrus-testnet.mystenlabs.com';
+    // 初始化 Walrus 客户端
+    this.client = new WalrusClient({
+      network: network,
+      suiClient: this.suiClient,
+      // 使用 CDN 地址加载 WASM
+      wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@latest/web/walrus_wasm_bg.wasm',
+      storageNodeClientOptions: {
+        timeout: 60_000,
+        fetch: this.fetchWithRetry.bind(this)
+      }
+    });
+  }
+
+  /**
+   * 延迟指定时间
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 带重试的fetch请求
+   */
+  private async fetchWithRetry(url: string, options: any, retries = this.MAX_RETRIES): Promise<Response> {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(60_000) // 60秒超时
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status} - ${response.statusText}\n${errorText}`);
+      }
+      return response;
+    } catch (error) {
+      if (retries > 0) {
+        console.log(`请求失败，${retries}次重试机会剩余，等待${this.RETRY_DELAY}ms后重试...`);
+        await this.delay(this.RETRY_DELAY);
+        return this.fetchWithRetry(url, options, retries - 1);
+      }
+      throw error;
+    }
   }
   
   /**
    * 上传文件到Walrus
    * @param file 要上传的文件
    * @param duration 存储时长(秒)
+   * @param signer 交易签名者
    * @returns Promise<{blobId: string, url: string}>
    */
-  async uploadFile(file: File, duration: number): Promise<{ blobId: string, url: string }> {
+  async uploadFile(file: File, duration: number, signer: any): Promise<{ blobId: string, url: string }> {
     try {
       console.log(`正在上传文件到Walrus: ${file.name}, 大小: ${file.size} 字节`);
       
-      // 转换为ArrayBuffer
+      // 将文件转换为 Uint8Array
       const buffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(buffer);
       
-      // 计算存储有效期
-      const validUntil = Math.floor(Date.now() / 1000) + duration;
-      console.log(`文件将存储至: ${new Date(validUntil * 1000).toLocaleString()}`);
+      // 计算存储时长（转换为epoch数，1个epoch约24小时）
+      const epochs = Math.ceil(duration / (24 * 60 * 60));
+      console.log(`文件将存储 ${epochs} 个epochs（约${epochs}天）`);
       
-      // 使用新版API上传
       try {
-        const result = await this.client.uploadBlob({
-          content: new Uint8Array(buffer),
-          expireAt: validUntil,
+        const { blobId } = await this.client.writeBlob({
+          blob: uint8Array,
+          deletable: true,
+          epochs: epochs,
+          signer: signer,
+          attributes: {
+            filename: file.name,
+            contentType: file.type,
+            uploadTime: new Date().toISOString()
+          }
         });
         
-        console.log(`文件上传成功, Blob ID: ${result.id}`);
+        console.log(`文件上传成功, Blob ID: ${blobId}`);
         
-        // 构建URL
-        const url = `${this.baseUrl}/blob/${result.id}`;
+        // 获取blob URL
+        const url = await this.client.getBlobUrl(blobId);
         
-        return { blobId: result.id, url };
-      } catch (uploadError) {
-        console.error('Walrus API调用错误:', uploadError);
-        
-        // 如果API调用失败，尝试使用fetch作为备选方案
-        console.log('尝试使用fetch方式上传...');
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('expireAt', validUntil.toString());
-        
-        const response = await fetch(`${this.baseUrl}/blob`, {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!response.ok) {
-          throw new Error(`上传失败: HTTP ${response.status} - ${response.statusText}`);
+        return { blobId, url };
+      } catch (error) {
+        if (error instanceof Error && error.name === 'RetryableWalrusClientError') {
+          console.log('遇到可重试错误，重置客户端后重试...');
+          this.client.reset();
+          // 重新尝试上传
+          return this.uploadFile(file, duration, signer);
         }
-        
-        const result = await response.json();
-        if (!result.id) {
-          throw new Error('服务器返回的数据格式不正确');
-        }
-        
-        console.log(`文件上传成功, Blob ID: ${result.id}`);
-        
-        // 构建URL
-        const url = `${this.baseUrl}/blob/${result.id}`;
-        
-        return { blobId: result.id, url };
+        throw error;
       }
     } catch (error) {
       console.error('Walrus上传错误:', error);
@@ -88,87 +118,38 @@ export class WalrusService {
   }
   
   /**
-   * 延长Blob存储时间
+   * 读取Blob内容
    * @param blobId Walrus中的Blob ID
-   * @param duration 要延长的时长(秒)
+   * @returns Promise<Uint8Array>
    */
-  async extendStorageDuration(blobId: string, duration: number): Promise<void> {
+  async readBlob(blobId: string): Promise<Uint8Array> {
     try {
-      console.log(`正在延长Blob(${blobId})的存储时间: ${duration}秒`);
-      
-      // 计算新的过期时间
-      const newExpiry = Math.floor(Date.now() / 1000) + duration;
-      console.log(`新的过期时间: ${new Date(newExpiry * 1000).toLocaleString()}`);
-      
-      // 调用Walrus API延长有效期
-      if (typeof this.client.update === 'function') {
-        // 新版API
-        await this.client.update({
-          id: blobId,
-          expireAt: newExpiry
-        });
-      } else if (typeof this.client.updateBlob === 'function') {
-        // 可能的替代API
-        await this.client.updateBlob(blobId, newExpiry);
-      } else {
-        // 尝试直接用fetch请求更新
-        const response = await fetch(`${this.baseUrl}/blob/${blobId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            expireAt: newExpiry
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`更新失败: ${response.statusText}`);
-        }
-      }
-      
-      console.log(`成功延长Blob存储时间`);
+      return await this.client.readBlob({ blobId });
     } catch (error) {
-      console.error('延长存储时间错误:', error);
-      throw new Error('延长Walrus存储时间失败');
+      if (error instanceof Error && error.name === 'RetryableWalrusClientError') {
+        console.log('遇到可重试错误，重置客户端后重试...');
+        this.client.reset();
+        return this.readBlob(blobId);
+      }
+      throw error;
     }
   }
   
   /**
-   * 检查Blob是否存在
+   * 获取Blob的类型信息
    * @param blobId Walrus中的Blob ID
-   * @returns 存在则返回true
    */
-  async checkBlobExists(blobId: string): Promise<boolean> {
-    try {
-      if (typeof this.client.get === 'function') {
-        // 新版API
-        await this.client.get({ id: blobId });
-      } else if (typeof this.client.getBlob === 'function') {
-        // 可能的替代API
-        await this.client.getBlob(blobId);
-      } else {
-        // 尝试直接用fetch请求获取
-        const response = await fetch(`${this.baseUrl}/blob/${blobId}`);
-        if (!response.ok) {
-          throw new Error(`获取失败: ${response.statusText}`);
-        }
-      }
-      return true;
-    } catch (error) {
-      console.log(`Blob(${blobId})不存在或已过期`);
-      return false;
-    }
+  async getBlobType(blobId: string): Promise<any> {
+    return this.client.getBlobType({ blobId });
   }
   
   /**
-   * 获取Blob的HTTP URL
+   * 获取Blob的URL
    * @param blobId Walrus中的Blob ID
-   * @returns HTTP URL
+   * @returns Promise<string>
    */
-  getBlobUrl(blobId: string): string {
-    // 直接构建URL
-    return `${this.baseUrl}/blob/${blobId}`;
+  async getBlobUrl(blobId: string): Promise<string> {
+    return this.client.getBlobUrl(blobId);
   }
 }
 

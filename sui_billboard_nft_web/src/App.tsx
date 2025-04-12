@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { SuiClientProvider, WalletProvider } from '@mysten/dapp-kit';
+import { WalletKitProvider } from '@mysten/wallet-kit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NETWORKS, DEFAULT_NETWORK } from './config/config';
 
@@ -32,25 +33,24 @@ function App() {
         }}
         defaultNetwork={DEFAULT_NETWORK}
       >
-        <WalletProvider 
-          autoConnect={false}
-          enableUnsafeBurner={false}
-        >
-          <Router>
-            <MainLayout>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/ad-spaces" element={<AdSpacesPage />} />
-                <Route path="/ad-spaces/:id" element={<AdSpaceDetailPage />} />
-                <Route path="/ad-spaces/:id/purchase" element={<PurchaseAdSpacePage />} />
-                <Route path="/my-nfts" element={<MyNFTsPage />} />
-                <Route path="/my-nfts/:id" element={<NFTDetailPage />} />
-                <Route path="/my-nfts/:id/renew" element={<NFTDetailPage />} />
-                <Route path="/manage" element={<ManagePage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </MainLayout>
-          </Router>
+        <WalletProvider autoConnect={true}>
+          <WalletKitProvider>
+            <Router>
+              <MainLayout>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/ad-spaces" element={<AdSpacesPage />} />
+                  <Route path="/ad-spaces/:id" element={<AdSpaceDetailPage />} />
+                  <Route path="/ad-spaces/:id/purchase" element={<PurchaseAdSpacePage />} />
+                  <Route path="/my-nfts" element={<MyNFTsPage />} />
+                  <Route path="/my-nfts/:id" element={<NFTDetailPage />} />
+                  <Route path="/my-nfts/:id/renew" element={<NFTDetailPage />} />
+                  <Route path="/manage" element={<ManagePage />} />
+                  <Route path="*" element={<NotFoundPage />} />
+                </Routes>
+              </MainLayout>
+            </Router>
+          </WalletKitProvider>
         </WalletProvider>
       </SuiClientProvider>
     </QueryClientProvider>
