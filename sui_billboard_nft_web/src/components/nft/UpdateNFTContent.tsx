@@ -1,8 +1,8 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Input, message, Image, Space } from 'antd';
-import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiClient, SuiTransactionResponse } from '@mysten/sui/client';
+import { TransactionBlock } from '@mysten/sui/transactions';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { walrusService } from '../../utils/walrus';
 import WalrusUpload from '../walrus/WalrusUpload';

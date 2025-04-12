@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, InputNumber, message, Space, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiClient, SuiTransactionResponse } from '@mysten/sui/client';
+import { TransactionBlock } from '@mysten/sui/transactions';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { BillboardNFT, RenewNFTParams } from '../../types';
 import { formatSuiCoin } from '../../utils/formatter';

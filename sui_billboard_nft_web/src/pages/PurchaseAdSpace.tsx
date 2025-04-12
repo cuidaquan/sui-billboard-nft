@@ -168,7 +168,7 @@ const PurchaseAdSpacePage: React.FC = () => {
       
       // 执行交易
       await signAndExecute({
-        transaction: txb.serialize()
+        transaction: txb
       });
       
       // 交易已提交，显示提交成功消息

@@ -161,7 +161,7 @@ const NFTDetailPage: React.FC = () => {
       
       // 执行交易
       await signAndExecute({
-        transaction: txb.serialize()
+        transaction: txb
       });
       
       // 交易已提交，显示提交成功消息
@@ -299,7 +299,7 @@ const NFTDetailPage: React.FC = () => {
       // 执行交易
       try {
         await signAndExecute({
-          transaction: txb.serialize()
+          transaction: txb
         });
         
         console.log('续租交易已提交');

@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, InputNumber, message, Space, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiClient, SuiTransactionResponse } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import WalrusUpload from '../walrus/WalrusUpload';
 import { formatSuiCoin } from '../../utils/formatter';
@@ -22,7 +22,7 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
   onCancel,
   suiClient
 }) => {
-  const { signAndExecuteTransactionBlock } = useSignAndExecuteTransactionBlock();
+  const { signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [leaseDays, setLeaseDays] = useState<number>(30);
@@ -86,7 +86,7 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       };
       
       // 构建交易
-      const tx = new TransactionBlock();
+      const tx = new Transaction();
       
       // 准备支付
       // 简化计算，实际应调用合约的calculate_lease_price函数
@@ -120,13 +120,13 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       });
       
       // 执行交易
-      const result = await signAndExecuteTransactionBlock({
-        transactionBlock: tx,
+      const result = await signAndExecuteTransaction({
+        Transaction: tx,
         options: {
           showEffects: true,
           showEvents: true,
         },
-      }) as SuiTransactionBlockResponse;
+      }) as SuiTransactionResponse;
       
       // 检查交易结果
       if (result && result.digest) {

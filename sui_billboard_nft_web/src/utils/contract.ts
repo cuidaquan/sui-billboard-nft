@@ -1,5 +1,5 @@
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiClient } from '@mysten/sui.js/client';
+import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient } from '@mysten/sui/client';
 import { CONTRACT_CONFIG, NETWORKS, DEFAULT_NETWORK, USE_MOCK_DATA } from '../config/config';
 import { BillboardNFT, AdSpace, PurchaseAdSpaceParams, UpdateNFTContentParams, RenewNFTParams, CreateAdSpaceParams, RemoveGameDevParams } from '../types';
 
@@ -799,38 +799,38 @@ export async function getNFTDetails(nftId: string): Promise<BillboardNFT | null>
 }
 
 // 创建购买广告位交易
-export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): TransactionBlock {
-  const txb = new TransactionBlock();
+export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transaction {
+  const tx = new Transaction();
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
     // 不进行实际的交易构建
-    return txb;
+    return tx;
   }
   
   console.log('构建购买广告位交易', params);
   
   // 获取Clock对象
-  const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
+  const clockObj = tx.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 创建SUI支付对象
-  const payment = txb.splitCoins(txb.gas, [txb.pure(params.price)]);
+  const payment = tx.splitCoins(tx.gas, [params.price]);
   
   // 准备参数
   const args = [
-    txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
-    txb.object(params.adSpaceId), // ad_space
+    tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+    tx.object(params.adSpaceId), // ad_space
     payment, // payment
-    txb.pure(params.brandName), // brand_name
-    txb.pure(params.contentUrl), // content_url
-    txb.pure(params.projectUrl), // project_url
-    txb.pure(params.leaseDays), // lease_days
+    tx.object(params.brandName), // brand_name
+    tx.object(params.contentUrl), // content_url
+    tx.object(params.projectUrl), // project_url
+    tx.pure(params.leaseDays), // lease_days
     clockObj, // clock
   ];
   
   // 如果指定了开始时间，使用该时间；否则使用0表示不使用自定义开始时间
   const startTime = params.startTime ? params.startTime : 0;
-  args.push(txb.pure(startTime)); // start_time (unix timestamp，0表示使用当前时间)
+  args.push(tx.pure(startTime)); // start_time (unix timestamp，0表示使用当前时间)
   
   if (params.startTime) {
     console.log('使用自定义开始时间:', new Date(params.startTime * 1000).toLocaleString());
@@ -839,17 +839,17 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   }
   
   // 调用合约的purchase_ad_space函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
     arguments: args,
   });
   
-  return txb;
+  return tx;
 }
 
 // 创建更新广告内容交易
-export function createUpdateAdContentTx(params: UpdateNFTContentParams): TransactionBlock {
-  const txb = new TransactionBlock();
+export function createUpdateAdContentTx(params: UpdateNFTContentParams): Transaction {
+  const txb = new Transaction();
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
@@ -867,7 +867,7 @@ export function createUpdateAdContentTx(params: UpdateNFTContentParams): Transac
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_content`,
     arguments: [
       txb.object(params.nftId), // nft
-      txb.pure(params.contentUrl), // content_url
+      txb.object(params.contentUrl), // content_url
       clockObj, // clock
     ],
   });
@@ -876,8 +876,8 @@ export function createUpdateAdContentTx(params: UpdateNFTContentParams): Transac
 }
 
 // 创建续租交易
-export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
-  const txb = new TransactionBlock();
+export function createRenewLeaseTx(params: RenewNFTParams): Transaction {
+  const txb = new Transaction();
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
@@ -902,7 +902,7 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
   }
   
   // 创建SUI支付对象
-  const payment = txb.splitCoins(txb.gas, [txb.pure(priceAmount)]);
+  const [payment] = txb.splitCoins(txb.gas, [txb.object(priceAmount)]);
   
   // 调用合约的renew_lease函数
   txb.moveCall({
@@ -912,7 +912,7 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
       txb.object(adSpaceId), // ad_space
       txb.object(params.nftId), // nft
       payment, // payment
-      txb.pure(params.leaseDays), // lease_days
+      txb.object(params.leaseDays), // lease_days
       clockObj, // clock
     ],
   });
@@ -929,8 +929,8 @@ export function createRenewLeaseTx(params: RenewNFTParams): TransactionBlock {
 }
 
 // 创建广告位的交易
-export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
-  const txb = new TransactionBlock();
+export function createAdSpaceTx(params: CreateAdSpaceParams): Transaction {
+  const txb = new Transaction();
   
   try {
     // 确保参数有效
@@ -985,10 +985,10 @@ export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
         target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_ad_space`,
         arguments: [
           factoryObj,                 // Factory 对象
-          txb.pure(params.gameId),    // 游戏ID
-          txb.pure(params.location),  // 位置信息
-          txb.pure(formattedSize),    // 尺寸信息 - 使用转换后的格式
-          txb.pure(params.price),     // 每日价格
+          txb.object(params.gameId),    // 游戏ID
+          txb.object(params.location),  // 位置信息
+          txb.object(formattedSize),    // 尺寸信息 - 使用转换后的格式
+          txb.object(params.price),     // 每日价格
           clockObj,                   // Clock 对象
         ],
       });
@@ -1009,15 +1009,15 @@ export function createAdSpaceTx(params: CreateAdSpaceParams): TransactionBlock {
 }
 
 // 注册游戏开发者的交易
-export function registerGameDevTx(params: { factoryId: string, developer: string }): TransactionBlock {
-  const txb = new TransactionBlock();
+export function registerGameDevTx(params: { factoryId: string, developer: string }): Transaction {
+  const txb = new Transaction();
   
   // 调用合约的 register_game_dev 函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::register_game_dev`,
     arguments: [
       txb.object(params.factoryId),  // Factory 对象
-      txb.pure(params.developer),    // 开发者地址
+      txb.object(params.developer),    // 开发者地址
     ],
   });
   
@@ -1025,15 +1025,15 @@ export function registerGameDevTx(params: { factoryId: string, developer: string
 }
 
 // 更新平台分成比例的交易
-export function updatePlatformRatioTx(params: { factoryId: string, ratio: number }): TransactionBlock {
-  const txb = new TransactionBlock();
+export function updatePlatformRatioTx(params: { factoryId: string, ratio: number }): Transaction {
+  const txb = new Transaction();
   
   // 调用合约的 update_platform_ratio 函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_platform_ratio`,
     arguments: [
       txb.object(params.factoryId), // Factory 对象
-      txb.pure(params.ratio),       // 新的分成比例
+      txb.object(params.ratio),       // 新的分成比例
     ],
   });
   
@@ -1041,15 +1041,15 @@ export function updatePlatformRatioTx(params: { factoryId: string, ratio: number
 }
 
 // 更新广告位价格的交易
-export function updateAdSpacePriceTx(params: { adSpaceId: string, price: string }): TransactionBlock {
-  const txb = new TransactionBlock();
+export function updateAdSpacePriceTx(params: { adSpaceId: string, price: string }): Transaction {
+  const txb = new Transaction();
   
   // 调用合约的 update_ad_space_price 函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_space_price`,
     arguments: [
       txb.object(params.adSpaceId), // AdSpace 对象
-      txb.pure(params.price),       // 新的价格
+      txb.object(params.price),       // 新的价格
     ],
   });
   
@@ -1868,15 +1868,15 @@ export async function getCreatedAdSpaces(developerAddress: string): Promise<AdSp
 }
 
 // 移除游戏开发者的交易
-export function removeGameDevTx(params: RemoveGameDevParams): TransactionBlock {
-  const txb = new TransactionBlock();
+export function removeGameDevTx(params: RemoveGameDevParams): Transaction {
+  const txb = new Transaction();
   
   // 调用合约的 remove_game_dev 函数
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::remove_game_dev`,
     arguments: [
       txb.object(params.factoryId),  // Factory 对象
-      txb.pure(params.developer),    // 开发者地址
+      txb.object(params.developer),    // 开发者地址
     ],
   });
   
@@ -1884,11 +1884,11 @@ export function removeGameDevTx(params: RemoveGameDevParams): TransactionBlock {
 }
 
 // 创建删除广告位的交易
-export function deleteAdSpaceTx(params: { factoryId: string, adSpaceId: string }): TransactionBlock {
+export function deleteAdSpaceTx(params: { factoryId: string, adSpaceId: string }): Transaction {
   console.log('创建删除广告位交易:', params);
   const { factoryId, adSpaceId } = params;
   
-  const txb = new TransactionBlock();
+  const txb = new Transaction();
   txb.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::delete_ad_space`,
     arguments: [

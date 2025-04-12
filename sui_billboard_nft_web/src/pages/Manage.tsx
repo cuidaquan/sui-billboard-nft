@@ -8,7 +8,6 @@ import './Manage.scss';
 import { ReloadOutlined, PlusOutlined, AppstoreOutlined, DollarOutlined, DeleteOutlined, FormOutlined, UserAddOutlined, UserDeleteOutlined, TeamOutlined, ColumnWidthOutlined, LinkOutlined, SettingOutlined, BankOutlined } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
-const { TabPane } = Tabs;
 const { Option } = Select;
 
 // 粒子背景组件
@@ -378,7 +377,7 @@ const ManagePage: React.FC = () => {
       
       // 执行交易
       await signAndExecute({
-        transaction: txb.serialize()
+        transaction: txb
       });
       
       console.log('交易执行成功，已提交到区块链');
@@ -532,7 +531,7 @@ const ManagePage: React.FC = () => {
       try {
         // 执行交易并等待结果
         const result = await signAndExecute({
-          transaction: txb.serialize()
+          transaction: txb
         });
         
         console.log('交易执行成功:', result);
@@ -679,7 +678,7 @@ const ManagePage: React.FC = () => {
         // 执行交易并等待结果
         const txb = removeGameDevTx(params);
         const result = await signAndExecute({
-          transaction: txb.serialize()
+          transaction: txb
         });
         
         console.log('移除开发者交易执行成功:', result);
@@ -816,7 +815,7 @@ const ManagePage: React.FC = () => {
       
       // 执行交易
       await signAndExecute({
-        transaction: txb.serialize()
+        transaction: txb
       });
       
       // 交易已提交
@@ -894,7 +893,7 @@ const ManagePage: React.FC = () => {
       
       // 执行交易
       await signAndExecute({
-        transaction: txb.serialize()
+        transaction: txb
       });
       
       // 交易已提交
@@ -1097,7 +1096,7 @@ const ManagePage: React.FC = () => {
         const txb = updatePlatformRatioTx(params);
         // 执行交易
         const result = await signAndExecute({
-          transaction: txb.serialize()
+          transaction: txb
         });
         
         console.log('更新平台分成比例交易执行成功:', result);
