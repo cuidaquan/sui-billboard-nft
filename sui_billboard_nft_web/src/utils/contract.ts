@@ -814,7 +814,7 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   const clockObj = tx.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 创建SUI支付对象
-  const payment = tx.splitCoins(tx.gas, [params.price]);
+  const [payment] = tx.splitCoins(tx.gas, [tx.pure.u64(params.price)]);
   
   // 准备参数
   const args = [
@@ -824,13 +824,13 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
     tx.object(params.brandName), // brand_name
     tx.object(params.contentUrl), // content_url
     tx.object(params.projectUrl), // project_url
-    tx.pure(params.leaseDays), // lease_days
+    tx.pure.u64(params.leaseDays), // lease_days
     clockObj, // clock
   ];
   
   // 如果指定了开始时间，使用该时间；否则使用0表示不使用自定义开始时间
   const startTime = params.startTime ? params.startTime : 0;
-  args.push(tx.pure(startTime)); // start_time (unix timestamp，0表示使用当前时间)
+  args.push(tx.pure.u64(startTime)); // start_time (unix timestamp，0表示使用当前时间)
   
   if (params.startTime) {
     console.log('使用自定义开始时间:', new Date(params.startTime * 1000).toLocaleString());
@@ -902,7 +902,7 @@ export function createRenewLeaseTx(params: RenewNFTParams): Transaction {
   }
   
   // 创建SUI支付对象
-  const [payment] = txb.splitCoins(txb.gas, [txb.object(priceAmount)]);
+  const [payment] = txb.splitCoins(txb.gas, [txb.pure.u64(priceAmount)]);
   
   // 调用合约的renew_lease函数
   txb.moveCall({
@@ -912,7 +912,7 @@ export function createRenewLeaseTx(params: RenewNFTParams): Transaction {
       txb.object(adSpaceId), // ad_space
       txb.object(params.nftId), // nft
       payment, // payment
-      txb.object(params.leaseDays), // lease_days
+      txb.pure.u64(params.leaseDays), // lease_days
       clockObj, // clock
     ],
   });
@@ -1033,7 +1033,7 @@ export function updatePlatformRatioTx(params: { factoryId: string, ratio: number
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_platform_ratio`,
     arguments: [
       txb.object(params.factoryId), // Factory 对象
-      txb.object(params.ratio),       // 新的分成比例
+      txb.pure.u64(params.ratio),       // 新的分成比例
     ],
   });
   
