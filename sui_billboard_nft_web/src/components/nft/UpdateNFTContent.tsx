@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Input, message, Image, Space } from 'antd';
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { walrusService } from '../../utils/walrus';
 import WalrusUpload from '../walrus/WalrusUpload';
 import { BillboardNFT, UpdateNFTContentParams } from '../../types';
@@ -21,7 +21,8 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
   onCancel,
   suiClient
 }) => {
-  const { signAndExecuteTransactionBlock } = useWalletKit();
+  const signAndExecuteTransaction = useSignAndExecuteTransaction();
+  const currentAccount = useCurrentAccount();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   
@@ -107,12 +108,9 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
       });
       
       // 执行交易
-      const result = await signAndExecuteTransactionBlock({
-        transactionBlock: tx,
-        options: {
-          showEffects: true,
-          showEvents: true,
-        },
+      const result = await signAndExecuteTransaction.mutate({
+        transaction: tx,
+        chain: process.env.REACT_APP_NETWORK || 'testnet'
       }) as SuiTransactionBlockResponse;
       
       // 检查交易结果

@@ -4,8 +4,7 @@ import { UploadOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-de
 import type { RcFile } from 'antd/lib/upload';
 import { walrusService } from '../../utils/walrus';
 import './WalrusUpload.scss';
-import { useWalletKit } from '@mysten/wallet-kit';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 
 interface WalrusUploadProps {
   onChange?: (data: { url: string, blobId?: string, storageSource: string }) => void;
@@ -27,7 +26,7 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
   initialStorageSource = 'external'
 }) => {
   // 获取钱包工具
-  const { signAndExecuteTransactionBlock } = useWalletKit();
+  const signAndExecuteTransaction = useSignAndExecuteTransaction();
   const currentAccount = useCurrentAccount();
   
   // 存储选择
@@ -142,17 +141,33 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
       
       // 获取当前网络配置
       const network = process.env.REACT_APP_NETWORK || 'testnet';
+      console.log('当前网络:', network);
+      console.log('钱包地址:', currentAccount.address);
       
-      // 创建符合 SDK 要求的 signer 对象
+      // 创建符合 Walrus SDK 要求的 signer 对象
       const signer = {
+        // 提供标准的地址获取方法
         getAddress: () => currentAccount.address,
+        
+        // 提供toSuiAddress方法 - Walrus需要这个
+        toSuiAddress: () => currentAccount.address,
+        
+        // 提供直接的地址属性
+        address: currentAccount.address,
+        
+        // 提供签名方法
         signTransactionBlock: async (tx: any) => {
           try {
-            return signAndExecuteTransactionBlock({ 
-              transactionBlock: tx,
-              chain: `sui:${network}`,
-              options: { showEffects: true }
+            // 避免序列化，直接传递原始交易对象
+            console.log('准备签名交易...'); 
+            
+            // 使用dapp-kit的mutate方法
+            const result = await signAndExecuteTransaction.mutate({ 
+              transaction: tx,
+              chain: `sui:${network}`
             });
+            
+            return result;
           } catch (error) {
             console.error('交易签名错误:', error);
             throw error;

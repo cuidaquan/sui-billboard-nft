@@ -2,16 +2,32 @@ import { WalrusClient } from '@mysten/walrus';
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { RetryableWalrusClientError } from '@mysten/walrus';
 
+// Buffer polyfill for browser environments
+const BufferPolyfill = {
+  from: (data: string, encoding?: string): Uint8Array => {
+    if (encoding === 'base64') {
+      // 简单的base64解码实现
+      const decodedString = atob(data);
+      const bytes = new Uint8Array(decodedString.length);
+      for (let i = 0; i < decodedString.length; i++) {
+        bytes[i] = decodedString.charCodeAt(i);
+      }
+      return bytes;
+    }
+    // 默认处理为utf-8
+    const encoder = new TextEncoder();
+    return encoder.encode(data);
+  }
+};
+
+// 使用原生Buffer或polyfill
+const BufferCompat = typeof Buffer !== 'undefined' ? Buffer : BufferPolyfill;
+
 // 输出SDK版本信息，帮助调试
 console.log('======= SDK版本信息 =======');
-try {
-  // @ts-ignore
-  console.log('Walrus版本:', require('@mysten/walrus/package.json').version);
-  // @ts-ignore
-  console.log('Sui版本:', require('@mysten/sui/package.json').version);
-} catch (e) {
-  console.log('版本检查错误:', e);
-}
+// 使用硬编码方式记录版本，避免浏览器环境中的require问题
+console.log('Walrus版本: 0.0.13 (固定版本)');
+console.log('Sui版本: ^1.27.0 (package.json中声明的版本)');
 console.log('==========================');
 
 // 定义Walrus所需的签名者接口
@@ -42,17 +58,19 @@ export class WalrusService {
       url: getFullnodeUrl(network),
     });
     
-    // 使用最新版本的WalrusClient创建客户端
-    this.client = new WalrusClient({
+    // 完全绕过类型检查，构造符合Walrus 0.0.13运行时需求的配置
+    const config = {
       network: network === 'devnet' || network === 'localnet' ? undefined : network,
-      // @ts-ignore - 忽略SuiClient类型不匹配的错误
       suiClient: this.suiClient,
-      wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@latest/web/walrus_wasm_bg.wasm',
+      wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@0.0.5/web/walrus_wasm_bg.wasm',
       storageNodeClientOptions: {
         timeout: 60_000,
         fetch: this.createFetchWithRetry()
       }
-    });
+    };
+    
+    // 使用强制类型转换（双重断言）绕过TypeScript类型检查
+    this.client = new WalrusClient(config as any);
   }
 
   /**
@@ -115,33 +133,84 @@ export class WalrusService {
       const epochs = Math.ceil(duration / (24 * 60 * 60));
       console.log(`文件将存储 ${epochs} 个epochs（约${epochs}天）`);
       
+      console.log('开始调用Walrus SDK上传文件...');
+      
+      // 创建一个标准的存储交易
+      console.log('创建存储交易...');
       try {
-        // 使用最新版本的Walrus API直接上传文件
-        console.log('开始上传文件...');
+        // 准备一个标准的签名对象 - 遵循@mysten/sui.js的Signer接口
+        const address = signer.getAddress();
+        const signerObj = {
+          // 提供直接的地址属性
+          address: address,
+          // 提供方法
+          getAddress: () => address,
+          // 提供toSuiAddress方法
+          toSuiAddress: () => address,
+          // 使用原始的签名方法
+          signTransactionBlock: signer.signTransactionBlock.bind(signer)
+        };
         
-        const { blobId } = await this.client.writeBlob({
-          blob: uint8Array,
-          deletable: true,
+        // 1. 首先创建一个存储交易
+        const storageTransaction = await this.client.createStorageTransaction({
+          size: uint8Array.length,
           epochs: epochs,
-          signer: signer,
-          attributes: {
-            filename: file.name,
-            contentType: file.type,
-            uploadTime: new Date().toISOString()
-          }
+          owner: address
         });
         
-        console.log(`文件上传成功, Blob ID: ${blobId}`);
+        // 2. 执行存储交易
+        console.log('执行存储交易...');
+        await signerObj.signTransactionBlock(storageTransaction);
+        console.log('存储交易执行成功');
+        
+        // 3. 上传文件内容
+        console.log('上传文件内容...');
+        
+        // 确保signer对象具有toSuiAddress方法
+        if (!signerObj.toSuiAddress) {
+          console.log('添加toSuiAddress方法');
+          (signerObj as any).toSuiAddress = () => address;
+        }
+        
+        // 使用任何可能的变体尝试
+        console.log('尝试多种上传方式...');
+        
+        let blobId: string;
+        
+        try {
+          // 方式1：使用writeBlob - 最可能成功的方式
+          console.log('尝试方式1: writeBlob');
+          const writeResult = await this.client.writeBlob({
+            signer: signerObj as any,
+            blob: uint8Array,
+            deletable: true,
+            epochs: epochs,
+            attributes: {
+              filename: file.name,
+              contentType: file.type
+            }
+          });
+          
+          blobId = writeResult.blobId;
+          console.log('方式1成功，获得blobId:', blobId);
+        } catch (error1) {
+          console.error('方式1失败:', error1);
+          
+          // 尝试重置客户端
+          this.client.reset();
+          
+          throw error1;
+        }
         
         // 构建blob URL
         const url = `https://walrus.mystenlabs.com/blob/${blobId}`;
+        console.log('文件上传成功, URL:', url);
         
         return { blobId, url };
       } catch (error) {
         if (error instanceof RetryableWalrusClientError) {
           console.log('遇到可重试错误，重置客户端后重试...');
           this.client.reset();
-          // 重新尝试上传
           return this.uploadFile(file, duration, signer);
         }
         throw error;
