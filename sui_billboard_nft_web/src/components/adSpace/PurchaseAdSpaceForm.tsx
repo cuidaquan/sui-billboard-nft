@@ -4,7 +4,7 @@ import { Form, Input, Button, InputNumber, message, Space, Tooltip } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import WalrusUpload from '../walrus/WalrusUpload';
 import { formatSuiCoin } from '../../utils/formatter';
 import { AdSpace, PurchaseAdSpaceParams } from '../../types';
@@ -22,7 +22,7 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
   onCancel,
   suiClient
 }) => {
-  const { signAndExecuteTransactionBlock } = useSignAndExecuteTransactionBlock();
+  const { mutate: signAndExecuteTransactionBlock } = useSignAndExecuteTransaction();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [leaseDays, setLeaseDays] = useState<number>(30);
@@ -121,11 +121,7 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       
       // 执行交易
       const result = await signAndExecuteTransactionBlock({
-        transactionBlock: tx,
-        options: {
-          showEffects: true,
-          showEvents: true,
-        },
+        transaction: tx
       }) as SuiTransactionBlockResponse;
       
       // 检查交易结果

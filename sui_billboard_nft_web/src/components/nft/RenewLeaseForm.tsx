@@ -4,7 +4,7 @@ import { Form, Button, InputNumber, message, Space, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { BillboardNFT, RenewNFTParams } from '../../types';
 import { formatSuiCoin } from '../../utils/formatter';
 import { walrusService } from '../../utils/walrus';
@@ -24,7 +24,7 @@ const RenewLeaseForm: React.FC<RenewLeaseFormProps> = ({
   onCancel,
   suiClient
 }) => {
-  const { signAndExecuteTransactionBlock } = useCurrentAccount();
+  const { mutate: signAndExecuteTransactionBlock } = useSignAndExecuteTransaction();
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   const [leaseDays, setLeaseDays] = useState<number>(30);
@@ -111,11 +111,7 @@ const RenewLeaseForm: React.FC<RenewLeaseFormProps> = ({
       
       // 执行交易
       const result = await signAndExecuteTransactionBlock({
-        transactionBlock: tx,
-        options: {
-          showEffects: true,
-          showEvents: true,
-        },
+        transaction: tx
       }) as SuiTransactionBlockResponse;
       
       // 检查交易结果

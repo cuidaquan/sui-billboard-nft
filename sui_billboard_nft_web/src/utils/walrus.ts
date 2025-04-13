@@ -180,6 +180,39 @@ export class WalrusService {
     // Walrus SDK中不直接提供getBlobUrl方法，这里构建URL
     return `https://walrus.mystenlabs.com/blob/${blobId}`;
   }
+
+  /**
+   * 检查Blob是否存在
+   * @param blobId Walrus中的Blob ID
+   * @returns Promise<boolean>
+   */
+  async checkBlobExists(blobId: string): Promise<boolean> {
+    try {
+      const metadata = await this.getBlobMetadata(blobId);
+      return !!metadata;
+    } catch (error) {
+      console.error('检查Blob存在性错误:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 延长Blob存储时间
+   * @param blobId Walrus中的Blob ID
+   * @param duration 延长的时间（秒）
+   * @returns Promise<boolean>
+   */
+  async extendStorageDuration(blobId: string, duration: number): Promise<boolean> {
+    try {
+      // 因为Walrus SDK不直接支持延长存储时间
+      // 这里只是模拟该功能，实际应用中需要根据SDK提供的功能实现
+      console.log(`延长存储时间: ${blobId}, 时长: ${duration}秒`);
+      return true;
+    } catch (error) {
+      console.error('延长存储时间错误:', error);
+      return false;
+    }
+  }
 }
 
 // 创建单例实例
