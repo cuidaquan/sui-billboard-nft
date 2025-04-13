@@ -1,4 +1,4 @@
-import { getFullnodeUrl } from '@mysten/sui.js/client';
+import { getFullnodeUrl } from '@mysten/sui/client';
 
 /**
  * 支持的网络类型定义
