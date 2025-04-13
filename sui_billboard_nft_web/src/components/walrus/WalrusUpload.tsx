@@ -5,7 +5,6 @@ import type { RcFile } from 'antd/lib/upload';
 import { walrusService } from '../../utils/walrus';
 import './WalrusUpload.scss';
 import { useWalletKit } from '@mysten/wallet-kit';
-import { type TransactionBlock } from '@mysten/sui.js/transactions';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 
 interface WalrusUploadProps {
