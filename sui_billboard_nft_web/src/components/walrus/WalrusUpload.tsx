@@ -147,15 +147,20 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({
       const signer = {
         getAddress: () => currentAccount.address,
         signTransactionBlock: async (tx: any) => {
-          return signAndExecuteTransactionBlock({ 
-            transactionBlock: tx,
-            chain: `sui:${network}`,
-            options: { showEffects: true }
-          });
+          try {
+            return signAndExecuteTransactionBlock({ 
+              transactionBlock: tx,
+              chain: `sui:${network}`,
+              options: { showEffects: true }
+            });
+          } catch (error) {
+            console.error('交易签名错误:', error);
+            throw error;
+          }
         }
       };
       
-      // 执行实际上传 (可能需要数秒至数十秒)
+      // 执行文件上传
       const { blobId, url } = await walrusService.uploadFile(
         uploadedFile,
         storageDuration,

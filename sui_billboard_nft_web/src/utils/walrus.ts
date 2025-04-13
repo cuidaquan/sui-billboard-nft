@@ -2,6 +2,24 @@ import { WalrusClient } from '@mysten/walrus';
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { RetryableWalrusClientError } from '@mysten/walrus';
 
+// 输出SDK版本信息，帮助调试
+console.log('======= SDK版本信息 =======');
+try {
+  // @ts-ignore
+  console.log('Walrus版本:', require('@mysten/walrus/package.json').version);
+  // @ts-ignore
+  console.log('Sui版本:', require('@mysten/sui/package.json').version);
+} catch (e) {
+  console.log('版本检查错误:', e);
+}
+console.log('==========================');
+
+// 定义Walrus所需的签名者接口
+interface WalrusSigner {
+  address: string;
+  signTransaction: (txBytes: Uint8Array) => Promise<Uint8Array>;
+}
+
 /**
  * Walrus服务类：负责与Walrus存储交互
  */
@@ -24,8 +42,7 @@ export class WalrusService {
       url: getFullnodeUrl(network),
     });
     
-    // 使用TS忽略注释绕过检查
-    
+    // 使用最新版本的WalrusClient创建客户端
     this.client = new WalrusClient({
       network: network === 'devnet' || network === 'localnet' ? undefined : network,
       // @ts-ignore - 忽略SuiClient类型不匹配的错误
@@ -99,17 +116,9 @@ export class WalrusService {
       console.log(`文件将存储 ${epochs} 个epochs（约${epochs}天）`);
       
       try {
-        // 创建存储对象
-        const tx = await this.client.createStorageTransaction({
-          size: uint8Array.length,
-          epochs: epochs,
-          owner: signer.getAddress()
-        });
+        // 使用最新版本的Walrus API直接上传文件
+        console.log('开始上传文件...');
         
-        // 执行存储创建交易
-        const storageResult = await signer.signTransactionBlock(tx);
-        
-        // 上传文件
         const { blobId } = await this.client.writeBlob({
           blob: uint8Array,
           deletable: true,
@@ -124,8 +133,7 @@ export class WalrusService {
         
         console.log(`文件上传成功, Blob ID: ${blobId}`);
         
-        // 构建blob URL - Walrus SDK不提供getBlobUrl方法
-        // 根据blobId构建URL
+        // 构建blob URL
         const url = `https://walrus.mystenlabs.com/blob/${blobId}`;
         
         return { blobId, url };
@@ -179,6 +187,14 @@ export class WalrusService {
   async getBlobUrl(blobId: string): Promise<string> {
     // Walrus SDK中不直接提供getBlobUrl方法，这里构建URL
     return `https://walrus.mystenlabs.com/blob/${blobId}`;
+  }
+  
+  /**
+   * 获取Walrus客户端实例
+   * 仅供内部使用或调试
+   */
+  getClient(): WalrusClient {
+    return this.client;
   }
 }
 
