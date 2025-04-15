@@ -7,7 +7,7 @@ import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { BillboardNFT, RenewNFTParams } from '../../types';
 import { formatSuiCoin } from '../../utils/formatter';
-import { walrusService } from '../../utils/walrus';
+// 已移除 walrusService 导入
 
 interface RenewLeaseFormProps {
   nft: BillboardNFT;
@@ -45,31 +45,6 @@ const RenewLeaseForm: React.FC<RenewLeaseFormProps> = ({
     if (value !== null) {
       setLeaseDays(value);
     }
-  };
-  
-  // 延长Walrus存储时间
-  const extendWalrusStorage = async (leaseDays: number) => {
-    if (nft.blobId && nft.storageSource === 'walrus') {
-      try {
-        // 检查blob是否存在
-        const exists = await walrusService.checkBlobExists(nft.blobId);
-        if (exists) {
-          // 延长存储时间
-          await walrusService.extendStorageDuration(
-            nft.blobId,
-            leaseDays * 24 * 60 * 60
-          );
-          message.success('已成功延长Walrus存储时间！');
-          return true;
-        } else {
-          message.warning('找不到原始Blob内容，可能已过期');
-        }
-      } catch (error) {
-        console.error('延长Walrus存储时间错误:', error);
-        message.error('延长Walrus存储时间失败: ' + (error instanceof Error ? error.message : String(error)));
-      }
-    }
-    return false;
   };
   
   // 提交表单，续租NFT
@@ -117,11 +92,6 @@ const RenewLeaseForm: React.FC<RenewLeaseFormProps> = ({
       // 检查交易结果
       if (result && result.digest) {
         message.success('NFT租期续费成功！');
-        
-        // 延长Walrus存储时间
-        if (nft.blobId && nft.storageSource === 'walrus') {
-          await extendWalrusStorage(renewParams.leaseDays);
-        }
         
         if (onSuccess) {
           onSuccess(result.digest);

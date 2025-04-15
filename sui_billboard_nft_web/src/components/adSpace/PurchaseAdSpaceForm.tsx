@@ -5,7 +5,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import WalrusUpload from '../walrus/WalrusUpload';
+// 已移除 WalrusUpload 导入
 import { formatSuiCoin } from '../../utils/formatter';
 import { AdSpace, PurchaseAdSpaceParams } from '../../types';
 
@@ -28,16 +28,9 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
   const [leaseDays, setLeaseDays] = useState<number>(30);
   const [estimatedPrice, setEstimatedPrice] = useState<string>('0');
   
-  // 上传参数
-  const [contentParams, setContentParams] = useState<{
-    url: string;
-    blobId?: string;
-    storageSource: string;
-  }>({
-    url: '',
-    storageSource: 'external'
-  });
-  
+  // 内容URL状态 - 简化版
+  const [contentUrl, setContentUrl] = useState<string>("");
+
   // 当租期变化时，更新价格估算
   useEffect(() => {
     if (adSpace && adSpace.price) {
@@ -48,26 +41,25 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
     }
   }, [adSpace, leaseDays]);
   
-  // 处理内容上传参数变更
-  const handleContentParamsChange = (data: { url: string, blobId?: string, storageSource: string }) => {
-    setContentParams(data);
-    form.setFieldsValue({ contentUrl: data.url });
+  // 处理内容URL变更
+  const handleContentUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setContentUrl(e.target.value);
   };
-  
+
   // 处理租期变化
   const handleLeaseDaysChange = (value: number | null) => {
     if (value !== null) {
       setLeaseDays(value);
     }
   };
-  
+
   // 提交表单，购买广告位
   const handleSubmit = async (values: any) => {
     try {
       setSubmitting(true);
       
       // 检查内容URL
-      if (!contentParams.url) {
+      if (!contentUrl) {
         message.error('请提供广告内容URL');
         setSubmitting(false);
         return;
@@ -76,13 +68,11 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       // 准备购买参数
       const purchaseParams: PurchaseAdSpaceParams = {
         adSpaceId: adSpace.id,
-        contentUrl: contentParams.url,
+        contentUrl: contentUrl,
         brandName: values.brandName,
         projectUrl: values.projectUrl,
         price: adSpace.price,
         leaseDays: values.leaseDays,
-        blobId: contentParams.blobId,
-        storageSource: contentParams.storageSource
       };
       
       // 构建交易
@@ -95,11 +85,6 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       
       // 创建支付Coin对象
       const [coin] = tx.splitCoins(tx.gas, [tx.pure(totalPrice.toString())]);
-      
-      // 准备blob_id参数
-      const blobIdBytes = purchaseParams.blobId 
-        ? tx.pure(Array.from(new TextEncoder().encode(purchaseParams.blobId)))
-        : tx.pure([]);
       
       // 调用合约
       tx.moveCall({
@@ -114,8 +99,8 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
           tx.pure(purchaseParams.leaseDays),
           tx.object(process.env.REACT_APP_CLOCK_ID || ''),
           tx.pure(0), // 立即开始
-          blobIdBytes,
-          tx.pure(purchaseParams.storageSource)
+          tx.pure([]),
+          tx.pure('external')
         ]
       });
       
@@ -140,7 +125,7 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       setSubmitting(false);
     }
   };
-  
+
   return (
     <Form
       form={form}
@@ -194,15 +179,27 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
         <span className="price">{estimatedPrice} SUI</span>
       </div>
       
-      <Form.Item
-        label="广告内容"
-        required
-      >
-        <WalrusUpload
-          leaseDays={leaseDays}
-          onChange={handleContentParamsChange}
+      <Form.Item label="内容 URL" rules={[{ required: true, message: '请输入内容URL' }]}>
+        <Input 
+          placeholder="请输入图片URL" 
+          value={contentUrl}
+          onChange={handleContentUrlChange}
         />
       </Form.Item>
+
+      {contentUrl && (
+        <Form.Item label="预览">
+          <img 
+            src={contentUrl} 
+            alt="内容预览" 
+            style={{ maxWidth: '100%', maxHeight: '200px' }}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              message.error('图片加载失败，请检查URL是否有效');
+            }}
+          />
+        </Form.Item>
+      )}
       
       <Form.Item>
         <Space>

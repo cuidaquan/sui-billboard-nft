@@ -3,7 +3,7 @@ import { Form, Input, Button, Typography, Card, Divider, Select, Space, Spin, Ro
 import { InfoCircleOutlined, ShoppingCartOutlined, QuestionCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import { AdSpace, PurchaseAdSpaceParams } from '../../types';
 import { calculateLeasePrice, formatSuiAmount } from '../../utils/contract';
-import WalrusUpload from '../walrus/WalrusUpload';
+// 已移除 WalrusUpload 导入
 import dayjs from 'dayjs';
 import './AdSpaceForm.scss';
 
@@ -30,23 +30,11 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
   const [useCustomStartTime, setUseCustomStartTime] = useState<boolean>(false);
   const [startTime, setStartTime] = useState<dayjs.Dayjs | null>(null);
   
-  // 添加上传参数状态
-  const [contentParams, setContentParams] = useState<{
-    url: string;
-    blobId?: string;
-    storageSource: string;
-  }>({
-    url: '',
-    storageSource: 'external'
-  });
-  
-  // 获取租赁价格
   useEffect(() => {
     const fetchPrice = async () => {
       setCalculating(true);
       try {
         console.log('正在获取广告位价格', adSpace.id, leaseDays);
-        // 直接调用contract.ts中的calculateLeasePrice函数
         const price = await calculateLeasePrice(adSpace.id, leaseDays);
         console.log('获取到的价格 (原始):', price);
         const formattedPrice = formatSuiAmount(price);
@@ -68,15 +56,11 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
     fetchPrice();
   }, [adSpace.id, leaseDays, adSpace.price]);
   
-  // 处理内容上传参数变更
-  const handleContentParamsChange = (data: { url: string; blobId?: string; storageSource: string }) => {
-    setContentParams(data);
-    setContentUrl(data.url);
-    form.setFieldsValue({ contentUrl: data.url });
+  const handleContentUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setContentUrl(e.target.value);
   };
   
   const handleSubmit = (values: any) => {
-    // 如果价格无效，不允许提交
     if (totalPrice === 'NaN' || !totalPrice) {
       console.error('价格无效，无法提交');
       return;
@@ -87,18 +71,15 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
     
     const params: PurchaseAdSpaceParams = {
       adSpaceId: adSpace.id,
-      contentUrl: contentParams.url,
+      contentUrl: contentUrl,
       brandName: values.brandName,
       projectUrl: values.projectUrl,
       leaseDays: values.leaseDays,
       price: priceInMist,
-      blobId: contentParams.blobId,
-      storageSource: contentParams.storageSource
     };
     
-    // 如果使用自定义开始时间，添加startTime字段
     if (useCustomStartTime && startTime) {
-      params.startTime = Math.floor(startTime.valueOf() / 1000); // 转换为Unix时间戳（秒）
+      params.startTime = Math.floor(startTime.valueOf() / 1000); 
       console.log('使用自定义开始时间:', new Date(params.startTime * 1000).toLocaleString(), '时间戳:', params.startTime);
     } else {
       console.log('使用当前时间作为开始时间');
@@ -107,14 +88,6 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
     onSubmit(params);
   };
 
-  const handleContentUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setContentUrl(e.target.value);
-    setContentParams({
-      url: e.target.value,
-      storageSource: 'external'
-    });
-  };
-  
   return (
     <Card className="ad-space-form">
       <Title level={3}>购买广告位</Title>
@@ -247,7 +220,6 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
                 placeholder="选择开始时间"
                 onChange={(date) => setStartTime(date)}
                 disabledDate={(current) => {
-                  // 不能选择过去的日期
                   return current && current < dayjs().startOf('day');
                 }}
                 format="YYYY-MM-DD HH:mm:ss"
@@ -262,18 +234,30 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
           </Col>
           <Col span={24}>
             <Form.Item
-              name="contentUrl"
-              label="广告内容"
+              label="内容 URL"
               rules={[
-                { required: true, message: '请提供广告内容' }
+                { required: true, message: '请输入内容URL' }
               ]}
               extra={`推荐尺寸为 ${adSpace.dimension.width} x ${adSpace.dimension.height}`}
             >
-              <WalrusUpload
-                leaseDays={leaseDays}
-                onChange={handleContentParamsChange}
+              <Input 
+                placeholder="请输入图片URL" 
+                value={contentUrl}
+                onChange={handleContentUrlChange}
               />
             </Form.Item>
+            {contentUrl && (
+              <Form.Item label="预览">
+                <img 
+                  src={contentUrl} 
+                  alt="内容预览" 
+                  style={{ maxWidth: '100%', maxHeight: '200px' }}
+                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </Form.Item>
+            )}
           </Col>
           <Col span={24}>
             <Form.Item

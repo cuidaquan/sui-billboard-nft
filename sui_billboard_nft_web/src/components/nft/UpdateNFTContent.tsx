@@ -4,8 +4,6 @@ import { Card, Form, Button, Input, message, Image, Space } from 'antd';
 import { SuiClient, SuiTransactionBlockResponse } from '@mysten/sui.js/client';
 import { TransactionBlock } from '@mysten/sui.js/transactions';
 import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { walrusService } from '../../utils/walrus';
-import WalrusUpload from '../walrus/WalrusUpload';
 import { BillboardNFT, UpdateNFTContentParams } from '../../types';
 
 interface UpdateNFTContentProps {
@@ -25,45 +23,16 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
   
-  // 上传参数
+  // 上传参数 - 简化版
   const [contentParams, setContentParams] = useState<{
     url: string;
-    blobId?: string;
-    storageSource: string;
   }>({
-    url: nft.contentUrl || '',
-    blobId: nft.blobId,
-    storageSource: nft.storageSource || 'external'
+    url: nft.contentUrl || ''
   });
   
   // 处理内容上传参数变更
-  const handleContentParamsChange = (data: { url: string, blobId?: string, storageSource: string }) => {
-    setContentParams(data);
-  };
-  
-  // 延长旧的Walrus存储时间
-  const handleExtendWalrusStorage = async (blobId: string, days: number): Promise<boolean> => {
-    if (!blobId) return false;
-    
-    try {
-      // 检查blob是否存在
-      const exists = await walrusService.checkBlobExists(blobId);
-      if (exists) {
-        // 延长存储时间
-        await walrusService.extendStorageDuration(
-          blobId,
-          days * 24 * 60 * 60
-        );
-        message.success('已成功延长旧内容的存储时间！');
-        return true;
-      } else {
-        message.warning('找不到旧的内容，可能已过期');
-      }
-    } catch (error) {
-      console.error('延长Walrus存储时间错误:', error);
-      message.error('延长存储时间失败: ' + (error instanceof Error ? error.message : String(error)));
-    }
-    return false;
+  const handleContentParamsChange = (url: string) => {
+    setContentParams({ url });
   };
   
   // 提交表单，更新NFT内容
@@ -81,18 +50,11 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
       // 准备更新参数
       const updateParams: UpdateNFTContentParams = {
         nftId: nft.id,
-        contentUrl: contentParams.url,
-        blobId: contentParams.blobId,
-        storageSource: contentParams.storageSource
+        contentUrl: contentParams.url
       };
       
       // 构建交易
       const tx = new TransactionBlock();
-      
-      // 准备参数
-      const blobIdBytes = updateParams.blobId 
-        ? tx.pure(Array.from(new TextEncoder().encode(updateParams.blobId)))
-        : tx.pure([]);
       
       // 调用合约
       tx.moveCall({
@@ -100,8 +62,8 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
         arguments: [
           tx.object(updateParams.nftId),
           tx.pure(updateParams.contentUrl),
-          blobIdBytes,
-          tx.pure(updateParams.storageSource),
+          tx.pure(''),
+          tx.pure('external'),
           tx.object(process.env.REACT_APP_CLOCK_ID || '')
         ]
       });
@@ -114,23 +76,6 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
       // 检查交易结果
       if (result && result.digest) {
         message.success('NFT内容已成功更新！');
-        
-        // 如果旧内容是Walrus存储，而新内容不是相同的blobId
-        // 则需要延长旧内容的存储时间，防止租期内内容丢失
-        if (nft.blobId && 
-            nft.storageSource === 'walrus' && 
-            (contentParams.blobId !== nft.blobId || contentParams.storageSource !== 'walrus')) {
-          
-          // 计算从现在到租期结束的时间
-          const leaseEnd = new Date(nft.leaseEnd);
-          const now = new Date();
-          const diffTime = Math.max(0, leaseEnd.getTime() - now.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          if (diffDays > 0) {
-            await handleExtendWalrusStorage(nft.blobId, diffDays);
-          }
-        }
         
         if (onSuccess) {
           onSuccess(result.digest);
@@ -178,13 +123,27 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
           label="新内容"
           required
         >
-          <WalrusUpload
-            leaseDays={30} // 示例租期
-            initialValue={nft.contentUrl}
-            initialBlobId={nft.blobId}
-            initialStorageSource={nft.storageSource}
-            onChange={handleContentParamsChange}
-          />
+          <Form.Item label="内容 URL" rules={[{ required: true, message: '请输入内容URL' }]}>
+            <Input 
+              placeholder="请输入图片URL" 
+              value={contentParams.url}
+              onChange={(e) => handleContentParamsChange(e.target.value)}
+            />
+          </Form.Item>
+
+          {contentParams.url && (
+            <Form.Item label="预览">
+              <img 
+                src={contentParams.url} 
+                alt="内容预览" 
+                style={{ maxWidth: '100%', maxHeight: '200px' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  message.error('图片加载失败，请检查URL是否有效');
+                }}
+              />
+            </Form.Item>
+          )}
         </Form.Item>
         
         <Form.Item>
