@@ -10,17 +10,12 @@ import { getFullnodeUrl } from '@mysten/sui/client';
 export type NetworkName = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
 /**
- * 网络配置接口定义
- * 每个网络都包含这些基本信息
+ * 网络配置接口
  */
 export interface NetworkConfig {
-  /** 网络显示名称 */
   name: string;
-  /** 全节点RPC URL */
   fullNodeUrl: string;
-  /** 水龙头URL (可选，主网没有) */
   faucetUrl?: string;
-  /** 区块浏览器URL */
   explorerUrl: string;
 }
 
@@ -32,25 +27,25 @@ export const NETWORKS: Record<NetworkName, NetworkConfig> = {
   mainnet: {
     name: '主网',
     fullNodeUrl: getFullnodeUrl('mainnet'),
-    explorerUrl: 'https://suiexplorer.com'
+    explorerUrl: 'https://suivision.xyz'
   },
   testnet: {
     name: '测试网',
     fullNodeUrl: getFullnodeUrl('testnet'),
     faucetUrl: 'https://faucet.testnet.sui.io',
-    explorerUrl: 'https://suiexplorer.com/?network=testnet'
+    explorerUrl: 'https://testnet.suivision.xyz'
   },
   devnet: {
     name: '开发网',
     fullNodeUrl: getFullnodeUrl('devnet'),
     faucetUrl: 'https://faucet.devnet.sui.io',
-    explorerUrl: 'https://suiexplorer.com/?network=devnet'
+    explorerUrl: 'https://devnet.suivision.xyz'
   },
   localnet: {
     name: '本地网络',
     fullNodeUrl: 'http://localhost:9000',
     faucetUrl: 'http://localhost:9123/gas',
-    explorerUrl: 'https://suiexplorer.com/?network=local'
+    explorerUrl: 'http://localhost:3000'
   }
 };
 

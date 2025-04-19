@@ -1,13 +1,13 @@
-// @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Form, Input, Button, InputNumber, message, Space, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { SuiClient, SuiTransactionResponse } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient } from '@mysten/sui/client';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import WalrusUpload from '../walrus/WalrusUpload';
 import { formatSuiCoin } from '../../utils/formatter';
 import { AdSpace, PurchaseAdSpaceParams } from '../../types';
+import { createPurchaseAdSpaceTx } from '../../utils/transaction';
+import { useTransaction } from '../../hooks/useTransaction';
 
 interface PurchaseAdSpaceFormProps {
   adSpace: AdSpace;
@@ -22,127 +22,60 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
   onCancel,
   suiClient
 }) => {
-  const { signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const [form] = Form.useForm();
-  const [submitting, setSubmitting] = useState(false);
-  const [leaseDays, setLeaseDays] = useState<number>(30);
-  const [estimatedPrice, setEstimatedPrice] = useState<string>('0');
-  
-  // 上传参数
   const [contentParams, setContentParams] = useState<{
     url: string;
     blobId?: string;
-    storageSource: string;
-  }>({
-    url: '',
-    storageSource: 'external'
+    storageSource?: string;
+  }>({ url: '' });
+  const [leaseDays, setLeaseDays] = useState(365);
+  
+  const account = useCurrentAccount();
+  const transaction = useTransaction(suiClient, {
+    successMessage: '广告位购买成功！',
+    loadingMessage: '正在购买广告位...',
+    successMessageKey: 'purchase_success',
+    loadingMessageKey: 'purchase_loading',
+    onSuccess
   });
   
-  // 当租期变化时，更新价格估算
-  useEffect(() => {
-    if (adSpace && adSpace.price) {
-      // 简化计算，实际应调用合约的calculate_lease_price函数
-      const pricePerDay = BigInt(adSpace.price);
-      const totalPrice = pricePerDay * BigInt(leaseDays);
-      setEstimatedPrice(formatSuiCoin(totalPrice.toString()));
-    }
-  }, [adSpace, leaseDays]);
-  
-  // 处理内容上传参数变更
-  const handleContentParamsChange = (data: { url: string, blobId?: string, storageSource: string }) => {
-    setContentParams(data);
-    form.setFieldsValue({ contentUrl: data.url });
+  // 处理内容上传成功
+  const handleContentUploadSuccess = (url: string, blobId?: string, storageSource?: string) => {
+    setContentParams({ url, blobId, storageSource });
   };
   
-  // 处理租期变化
+  // 处理租期变更
   const handleLeaseDaysChange = (value: number | null) => {
-    if (value !== null) {
+    if (value) {
       setLeaseDays(value);
     }
   };
   
   // 提交表单，购买广告位
   const handleSubmit = async (values: any) => {
-    try {
-      setSubmitting(true);
-      
-      // 检查内容URL
-      if (!contentParams.url) {
-        message.error('请提供广告内容URL');
-        setSubmitting(false);
-        return;
-      }
-      
-      // 准备购买参数
-      const purchaseParams: PurchaseAdSpaceParams = {
-        adSpaceId: adSpace.id,
-        contentUrl: contentParams.url,
-        brandName: values.brandName,
-        projectUrl: values.projectUrl,
-        price: adSpace.price,
-        leaseDays: values.leaseDays,
-        blobId: contentParams.blobId,
-        storageSource: contentParams.storageSource
-      };
-      
-      // 构建交易
-      const tx = new Transaction();
-      
-      // 准备支付
-      // 简化计算，实际应调用合约的calculate_lease_price函数
-      const pricePerDay = BigInt(adSpace.price);
-      const totalPrice = pricePerDay * BigInt(leaseDays);
-      
-      // 创建支付Coin对象
-      const [coin] = tx.splitCoins(tx.gas, [tx.pure(totalPrice.toString())]);
-      
-      // 准备blob_id参数
-      const blobIdBytes = purchaseParams.blobId 
-        ? tx.pure(Array.from(new TextEncoder().encode(purchaseParams.blobId)))
-        : tx.pure([]);
-      
-      // 调用合约
-      tx.moveCall({
-        target: `${process.env.REACT_APP_CONTRACT_PACKAGE_ID}::${process.env.REACT_APP_CONTRACT_MODULE_NAME}::purchase_ad_space`,
-        arguments: [
-          tx.object(process.env.REACT_APP_FACTORY_OBJECT_ID || ''),
-          tx.object(purchaseParams.adSpaceId),
-          coin,
-          tx.pure(purchaseParams.brandName),
-          tx.pure(purchaseParams.contentUrl),
-          tx.pure(purchaseParams.projectUrl),
-          tx.pure(purchaseParams.leaseDays),
-          tx.object(process.env.REACT_APP_CLOCK_ID || ''),
-          tx.pure(0), // 立即开始
-          blobIdBytes,
-          tx.pure(purchaseParams.storageSource)
-        ]
-      });
-      
-      // 执行交易
-      const result = await signAndExecuteTransaction({
-        Transaction: tx,
-        options: {
-          showEffects: true,
-          showEvents: true,
-        },
-      }) as SuiTransactionResponse;
-      
-      // 检查交易结果
-      if (result && result.digest) {
-        message.success('广告位购买成功！');
-        if (onSuccess) {
-          onSuccess(result.digest);
-        }
-      } else {
-        message.error('广告位购买失败');
-      }
-    } catch (error) {
-      console.error('购买广告位错误:', error);
-      message.error('购买广告位时发生错误: ' + (error instanceof Error ? error.message : String(error)));
-    } finally {
-      setSubmitting(false);
+    // 检查内容URL
+    if (!contentParams.url) {
+      message.error('请提供广告内容URL');
+      return;
     }
+    
+    // 准备购买参数
+    const purchaseParams: PurchaseAdSpaceParams = {
+      adSpaceId: adSpace.id,
+      contentUrl: contentParams.url,
+      brandName: values.brandName,
+      projectUrl: values.projectUrl,
+      price: adSpace.price,
+      leaseDays: values.leaseDays,
+      blobId: contentParams.blobId,
+      storageSource: contentParams.storageSource
+    };
+    
+    // 构建交易
+    const tx = createPurchaseAdSpaceTx(purchaseParams);
+    
+    // 执行交易
+    await transaction.executeTransaction(tx);
   };
   
   return (
@@ -151,60 +84,56 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       layout="vertical"
       onFinish={handleSubmit}
       initialValues={{
-        leaseDays: 30,
+        leaseDays: 365
       }}
     >
       <Form.Item
-        name="brandName"
         label="品牌名称"
+        name="brandName"
         rules={[{ required: true, message: '请输入品牌名称' }]}
       >
-        <Input placeholder="请输入您的品牌名称" />
+        <Input placeholder="请输入品牌名称" maxLength={50} />
       </Form.Item>
       
       <Form.Item
+        label="项目链接"
         name="projectUrl"
-        label="项目URL"
         rules={[
-          { required: true, message: '请输入项目URL' },
+          { required: true, message: '请输入项目链接' },
           { type: 'url', message: '请输入有效的URL' }
         ]}
       >
-        <Input placeholder="请输入项目网站URL" />
+        <Input placeholder="请输入项目链接" />
       </Form.Item>
       
       <Form.Item
-        name="leaseDays"
         label={
-          <span>
-            租期（天）
-            <Tooltip title="租期越长，每天的价格越优惠">
-              <InfoCircleOutlined style={{ marginLeft: '4px' }} />
+          <Space>
+            <span>租期（天）</span>
+            <Tooltip title="租期固定为365天">
+              <InfoCircleOutlined />
             </Tooltip>
-          </span>
+          </Space>
         }
-        rules={[{ required: true, message: '请输入租期天数' }]}
+        name="leaseDays"
       >
         <InputNumber
-          min={1}
+          min={365}
           max={365}
-          onChange={handleLeaseDaysChange}
           style={{ width: '100%' }}
+          disabled
+          onChange={handleLeaseDaysChange}
         />
       </Form.Item>
-      
-      <div className="estimated-price">
-        <span className="label">预估价格:</span>
-        <span className="price">{estimatedPrice} SUI</span>
-      </div>
       
       <Form.Item
         label="广告内容"
         required
+        help="支持图片格式：PNG、JPG、GIF，最大文件大小：10MB"
       >
         <WalrusUpload
+          onSuccess={handleContentUploadSuccess}
           leaseDays={leaseDays}
-          onChange={handleContentParamsChange}
         />
       </Form.Item>
       
@@ -213,9 +142,9 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
           <Button 
             type="primary" 
             htmlType="submit" 
-            loading={submitting}
+            loading={transaction.isPending}
           >
-            购买广告位
+            确认购买
           </Button>
           {onCancel && (
             <Button onClick={onCancel}>

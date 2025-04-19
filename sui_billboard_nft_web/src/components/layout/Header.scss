@@ -25,6 +25,8 @@
 
   .logo {
     margin-right: 24px;
+    display: flex;
+    align-items: center;
     
     h3 {
       margin: 0;
@@ -32,33 +34,11 @@
       font-weight: 700;
       
       a {
-        color: #101432;
+        color: #fff;
         text-decoration: none;
         display: flex;
         align-items: center;
-        background: linear-gradient(90deg, #4e63ff, #6e56cf);
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
         position: relative;
-        
-        &:after {
-          content: '';
-          position: absolute;
-          bottom: -2px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, #4e63ff, #6e56cf);
-          opacity: 0;
-          transform: scaleX(0.7);
-          transition: all 0.3s;
-        }
-        
-        &:hover:after {
-          opacity: 1;
-          transform: scaleX(1);
-        }
         
         .anticon {
           margin-right: 10px;
@@ -68,87 +48,53 @@
     }
   }
   
-  .nav-menu {
+  .header-menu {
     flex: 1;
-    border-bottom: none;
     background: transparent;
+    border-bottom: none;
+    line-height: 70px;
+    color: rgba(255, 255, 255, 0.85);
     
     .ant-menu-item {
-      font-weight: 500;
+      padding: 0 20px;
+      
+      a {
+        color: rgba(255, 255, 255, 0.85);
+      }
       
       .anticon {
-        margin-right: 6px;
+        margin-right: 8px;
         font-size: 16px;
       }
       
       &.ant-menu-item-selected {
-        color: #4e63ff;
-        font-weight: 600;
+        background: transparent;
+        
+        a {
+          color: #fff;
+        }
         
         &:after {
-          border-bottom-color: #4e63ff;
+          border-bottom: 2px solid #fff;
         }
       }
       
       &:hover {
-        color: #6e56cf;
+        a {
+          color: #fff;
+        }
         
         &:after {
-          border-bottom-color: #6e56cf;
+          border-bottom: 2px solid rgba(255, 255, 255, 0.5);
         }
       }
     }
   }
   
-  .connect-wallet {
+  .header-right {
     margin-left: 24px;
-    
-    // 科技感连接钱包按钮
-    .connect-button {
-      border-radius: 8px;
-      height: 40px;
-      padding: 0 20px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      transition: all 0.3s;
-      background: linear-gradient(90deg, #4e63ff, #6e56cf);
-      border: none;
-      color: white;
-      box-shadow: 0 4px 10px rgba(78, 99, 255, 0.2);
-      
-      &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(78, 99, 255, 0.3);
-        background: linear-gradient(90deg, #5a6eff, #7a62d9);
-      }
-      
-      .anticon {
-        margin-right: 8px;
-      }
-    }
-    
-    // 已连接钱包样式
-    .wallet-info {
-      .wallet-address {
-        padding: 5px 10px;
-        background: rgba(78, 99, 255, 0.1);
-        border-radius: 8px;
-        border: 1px solid rgba(78, 99, 255, 0.2);
-        color: #4e63ff;
-        font-family: 'Roboto Mono', monospace;
-        cursor: pointer;
-        transition: all 0.3s;
-        
-        &:hover {
-          background: rgba(78, 99, 255, 0.15);
-        }
-        
-        .anticon {
-          margin-left: 5px;
-        }
-      }
-    }
+    display: flex;
+    align-items: center;
   }
   
   // 动态科技感效果
@@ -169,7 +115,7 @@
       width: 50px;
       height: 50px;
       border-radius: 50%;
-      border: 1px dashed rgba(78, 99, 255, 0.3);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
       animation: rotate 20s linear infinite;
     }
     
@@ -181,7 +127,7 @@
       width: 30px;
       height: 30px;
       border-radius: 50%;
-      border: 1px dashed rgba(110, 86, 207, 0.3);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
       animation: rotate 15s linear infinite reverse;
     }
   }

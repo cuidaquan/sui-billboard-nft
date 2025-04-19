@@ -3,18 +3,31 @@
   background: linear-gradient(to bottom, #f0f2ff, #fbfcff);
   
   .ant-layout-header {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(78, 99, 255, 0.1);
+    background: #001529; /* 深色背景 */
     padding: 0;
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     transition: all 0.3s;
     
     &.scrolled {
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    // 菜单项样式
+    .ant-menu {
+      background: transparent;
+      border-bottom: none;
+      line-height: 70px;
+      
+      .ant-menu-item a {
+        color: rgba(255, 255, 255, 0.85);
+      }
+      
+      .ant-menu-item-selected a {
+        color: #fff;
+      }
     }
   }
   

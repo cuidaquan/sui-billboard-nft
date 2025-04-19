@@ -132,11 +132,11 @@ export async function checkIsGameDev(address: string | undefined): Promise<boole
 
 /**
  * 检查用户角色
- * @param client SuiClient实例
  * @param address 用户钱包地址
+ * @param client 可选的 SuiClient 实例
  * @returns 用户角色
  */
-export async function checkUserRole(client: SuiClient, address: string): Promise<UserRole> {
+export async function checkUserRole(address: string, client?: SuiClient): Promise<UserRole> {
   console.log('=== 开始检查用户角色 ===');
   console.log('钱包地址:', address);
   console.log('合约配置:', {
@@ -146,9 +146,12 @@ export async function checkUserRole(client: SuiClient, address: string): Promise
   });
 
   try {
+    // 如果没有提供 client，创建一个默认的
+    const suiClient = client || new SuiClient({ url: 'https://fullnode.mainnet.sui.io' });
+    
     // 首先检查是否是管理员
     console.log('正在检查管理员权限...');
-    const isAdmin = await checkIsAdmin(client, address);
+    const isAdmin = await checkIsAdmin(suiClient, address);
     console.log('管理员检查结果:', isAdmin);
     
     if (isAdmin) {

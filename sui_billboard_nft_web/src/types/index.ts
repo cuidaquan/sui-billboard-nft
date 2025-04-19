@@ -91,7 +91,8 @@ export interface AdSpaceFilter {
 export enum UserRole {
   ADMIN = 'ADMIN',
   GAME_DEV = 'GAME_DEV',
-  USER = 'USER'
+  USER = 'USER',
+  OWNER = 'OWNER'
 }
 
 export interface User {

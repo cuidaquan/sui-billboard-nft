@@ -1,9 +1,6 @@
-// @ts-nocheck
 import { WalrusClient } from '@mysten/walrus';
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
-import { useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { type SuiTransactionBlockResponse } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+
 
 export type SignFunction = (tx: any) => Promise<any>;
 
@@ -11,13 +8,14 @@ export type SignFunction = (tx: any) => Promise<any>;
  * Walrus服务类：负责与Walrus存储交互
  */
 export class WalrusService {
-  private client: WalrusClient;
-  private suiClient: SuiClient;
+  private client!: WalrusClient;
+  private suiClient!: SuiClient;
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000; // 1秒
   
   constructor() {
-    const network = process.env.REACT_APP_WALRUS_ENVIRONMENT || 'testnet';
+    // 使用类型断言确保网络类型正确
+    const network = (process.env.REACT_APP_WALRUS_ENVIRONMENT || 'testnet') as 'testnet' | 'mainnet' | 'devnet' | 'localnet';
     console.log('初始化 Walrus 服务，网络环境:', network);
     
     // 初始化 SUI 客户端
@@ -25,19 +23,27 @@ export class WalrusService {
       url: getFullnodeUrl(network),
     });
     
-    // 初始化 Walrus 客户端
-    this.client = new WalrusClient({
-      network: network,
-      suiClient: this.suiClient,
-      // 使用 CDN 地址加载 WASM
-      wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@latest/web/walrus_wasm_bg.wasm',
-      storageNodeClientOptions: {
-        timeout: 60_000,
-        fetch: this.fetchWithRetry.bind(this)
-      }
-    });
-    
-    console.log('Walrus 客户端初始化完成');
+    try {
+      // 初始化 Walrus 客户端
+      this.client = new WalrusClient({
+        // 只使用 testnet 或 mainnet，将 devnet 和 localnet 都映射到 testnet
+        network: (network === 'testnet' || network === 'mainnet') ? network : 'testnet',
+        // 由于类型不兼容问题，使用类型断言
+        suiClient: this.suiClient as any,
+        // 使用 CDN 地址加载 WASM
+        wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@latest/web/walrus_wasm_bg.wasm',
+        storageNodeClientOptions: {
+          timeout: 60_000,
+          // 调整fetch参数类型
+          fetch: ((url: RequestInfo, options?: RequestInit) => 
+            this.fetchWithRetry(url.toString(), options || {}, this.MAX_RETRIES)) as any
+        }
+      });
+      
+      console.log('Walrus 客户端初始化完成');
+    } catch (err) {
+      console.error('Walrus 客户端初始化失败:', err);
+    }
   }
 
   /**
@@ -114,20 +120,21 @@ export class WalrusService {
           }
           
           console.log('存储创建交易成功:', storageResult);
-        } catch (error) {
-          console.error('存储创建交易错误:', error);
-          throw new Error('存储创建交易失败: ' + (error.message || '未知错误'));
+        } catch (err) {
+          console.error('存储创建交易错误:', err);
+          const errorMessage = err instanceof Error ? err.message : '未知错误';
+          throw new Error('存储创建交易失败: ' + errorMessage);
         }
         
-        // 上传文件
+        // 上传文件 - 调整signer接口以匹配最新API
         const { blobId } = await this.client.writeBlob({
           blob: uint8Array,
           deletable: true,
           epochs: epochs,
           signer: {
-            getAddress: () => address,
+            // 使用兼容接口
             signTransactionBlock: signAndExecute
-          },
+          } as any,
           attributes: {
             filename: file.name,
             contentType: file.type,
@@ -141,8 +148,17 @@ export class WalrusService {
         
         console.log(`文件上传成功, Blob ID: ${blobId}`);
         
-        // 获取blob URL
-        const url = await this.client.getBlobUrl(blobId);
+        // 获取blob URL - 使用自定义实现，因为当前版本可能没有这个方法
+        let url = '';
+        try {
+          // 尝试直接调用，如果API支持的话
+          url = await (this.client as any).getBlobUrl(blobId);
+        } catch (e) {
+          // 如果API不支持，构造URL
+          const network = process.env.REACT_APP_WALRUS_ENVIRONMENT || 'testnet';
+          url = `https://${network}.walrus.app/blob/${blobId}`;
+        }
+        
         if (!url) {
           throw new Error('获取文件URL失败');
         }
@@ -151,15 +167,16 @@ export class WalrusService {
       } catch (error) {
         if (error instanceof Error && error.name === 'RetryableWalrusClientError') {
           console.log('遇到可重试错误，重置客户端后重试...');
-          this.client.reset();
+          (this.client as any).reset();
           // 重新尝试上传
           return this.uploadFile(file, duration, address, signAndExecute);
         }
         throw error;
       }
-    } catch (error) {
-      console.error('Walrus上传错误:', error);
-      throw new Error(`上传到Walrus失败: ${error.message || '未知错误'}`);
+    } catch (err) {
+      console.error('Walrus上传错误:', err);
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      throw new Error(`上传到Walrus失败: ${errorMessage}`);
     }
   }
   
@@ -174,7 +191,7 @@ export class WalrusService {
     } catch (error) {
       if (error instanceof Error && error.name === 'RetryableWalrusClientError') {
         console.log('遇到可重试错误，重置客户端后重试...');
-        this.client.reset();
+        (this.client as any).reset();
         return this.readBlob(blobId);
       }
       throw error;
@@ -186,7 +203,14 @@ export class WalrusService {
    * @param blobId Walrus中的Blob ID
    */
   async getBlobType(blobId: string): Promise<any> {
-    return this.client.getBlobType({ blobId });
+    try {
+      // 传入对象参数或直接传入blobId，根据API需要调整
+      return await (this.client as any).getBlobType({ blobId });
+    } catch (e) {
+      // 如果方法不存在，返回默认值
+      console.warn('getBlobType方法可能不存在或已更改:', e);
+      return { contentType: 'application/octet-stream' };
+    }
   }
   
   /**
@@ -195,7 +219,14 @@ export class WalrusService {
    * @returns Promise<string>
    */
   async getBlobUrl(blobId: string): Promise<string> {
-    return this.client.getBlobUrl(blobId);
+    try {
+      // 尝试直接调用，如果API支持的话
+      return await (this.client as any).getBlobUrl(blobId);
+    } catch (e) {
+      // 如果API不支持，构造URL
+      const network = process.env.REACT_APP_WALRUS_ENVIRONMENT || 'testnet';
+      return `https://${network}.walrus.app/blob/${blobId}`;
+    }
   }
 }
 

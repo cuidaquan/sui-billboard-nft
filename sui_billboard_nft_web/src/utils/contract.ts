@@ -804,7 +804,6 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
-    // 不进行实际的交易构建
     return tx;
   }
   
@@ -814,246 +813,176 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   const clockObj = tx.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 创建SUI支付对象
-  const [payment] = tx.splitCoins(tx.gas, [tx.pure.u64(params.price)]);
+  const coins = tx.splitCoins(params.price);
   
-  // 准备参数
-  const args = [
-    tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
-    tx.object(params.adSpaceId), // ad_space
-    payment, // payment
-    tx.object(params.brandName), // brand_name
-    tx.object(params.contentUrl), // content_url
-    tx.object(params.projectUrl), // project_url
-    tx.pure.u64(params.leaseDays), // lease_days
-    clockObj, // clock
-  ];
-  
-  // 如果指定了开始时间，使用该时间；否则使用0表示不使用自定义开始时间
-  const startTime = params.startTime ? params.startTime : 0;
-  args.push(tx.pure.u64(startTime)); // start_time (unix timestamp，0表示使用当前时间)
-  
-  if (params.startTime) {
-    console.log('使用自定义开始时间:', new Date(params.startTime * 1000).toLocaleString());
-  } else {
-    console.log('使用当前时间作为开始时间');
-  }
+  // 准备blob_id参数
+  const blobIdBytes = params.blobId 
+    ? tx.pure.string(params.blobId)
+    : tx.pure.string('');
   
   // 调用合约的purchase_ad_space函数
-  tx.moveCall({
-    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
-    arguments: args,
-  });
+  tx.call(
+    `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
+    [
+      tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID),
+      tx.object(params.adSpaceId),
+      coins,
+      tx.pure.string(params.brandName),
+      tx.pure.string(params.contentUrl),
+      tx.pure.string(params.projectUrl),
+      tx.pure.u64(params.leaseDays),
+      clockObj,
+      tx.pure.u64(params.startTime || 0),
+      blobIdBytes,
+      tx.pure.string(params.storageSource || 'none')
+    ]
+  );
   
   return tx;
 }
 
 // 创建更新广告内容交易
 export function createUpdateAdContentTx(params: UpdateNFTContentParams): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
-    // 不进行实际的交易构建
-    return txb;
+    return tx;
   }
   
   console.log('构建更新广告内容交易');
   
-  // 获取Clock对象
-  const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
+  // 准备blob_id参数
+  const blobIdBytes = params.blobId 
+    ? tx.pure.string(params.blobId)
+    : tx.pure.string('');
   
   // 调用合约的update_ad_content函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_content`,
     arguments: [
-      txb.object(params.nftId), // nft
-      txb.object(params.contentUrl), // content_url
-      clockObj, // clock
+      tx.object(params.nftId), // nft
+      tx.pure.string(params.contentUrl), // content_url
+      blobIdBytes, // blob_id
+      tx.pure.string(params.storageSource || 'none'), // storage_source
+      tx.object(CONTRACT_CONFIG.CLOCK_ID) // clock
     ],
   });
   
-  return txb;
+  return tx;
 }
 
 // 创建续租交易
 export function createRenewLeaseTx(params: RenewNFTParams): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
   if (USE_MOCK_DATA) {
     console.log('使用模拟交易数据');
-    // 不进行实际的交易构建
-    return txb;
+    return tx;
   }
   
   console.log('构建续租交易，参数:', params);
   
-  // 获取Clock对象
-  const clockObj = txb.object(CONTRACT_CONFIG.CLOCK_ID);
-  
-  // 获取广告位ID
-  const adSpaceId = params.adSpaceId;
-  
   // 确保价格是字符串，并检查是否需要转换单位
   let priceAmount = params.price;
   if (Number(priceAmount) < 1000000) {
-    // 如果价格太小，可能是单位问题，转换为MIST (SUI的最小单位)
     priceAmount = (Number(priceAmount) * 1000000000).toString();
     console.log('价格单位转换:', params.price, '->', priceAmount);
   }
   
   // 创建SUI支付对象
-  const [payment] = txb.splitCoins(txb.gas, [txb.pure.u64(priceAmount)]);
+  const [payment] = tx.splitCoins(tx.gas, [tx.pure.u64(priceAmount)]);
   
   // 调用合约的renew_lease函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::renew_lease`,
     arguments: [
-      txb.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
-      txb.object(adSpaceId), // ad_space
-      txb.object(params.nftId), // nft
+      tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID), // factory
+      tx.object(params.adSpaceId), // ad_space
+      tx.object(params.nftId), // nft
       payment, // payment
-      txb.pure.u64(params.leaseDays), // lease_days
-      clockObj, // clock
+      tx.pure.u64(params.leaseDays), // lease_days
+      tx.object(CONTRACT_CONFIG.CLOCK_ID) // clock
     ],
   });
   
-  console.log('续租交易构建完成，参数:', {
-    factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
-    adSpaceId: adSpaceId,
-    nftId: params.nftId,
-    price: priceAmount,
-    leaseDays: params.leaseDays
-  });
-  
-  return txb;
+  return tx;
 }
 
 // 创建广告位的交易
 export function createAdSpaceTx(params: CreateAdSpaceParams): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
-  try {
-    // 确保参数有效
-    if (!params.factoryId || !params.gameId || !params.location || !params.size || !params.price || !params.clockId) {
-      throw new Error('创建广告位参数不完整');
-    }
-    
-    // 转换尺寸格式为规范化的格式
-    let formattedSize = '';
-    switch (params.size) {
-      case '小':
-        formattedSize = '128x128';
-        break;
-      case '中':
-        formattedSize = '256x256';
-        break;
-      case '大':
-        formattedSize = '512x512';
-        break;
-      case '超大':
-        formattedSize = '1024x512';
-        break;
-      default:
-        // 如果已经是正确格式，则直接使用
-        if (/\d+x\d+/.test(params.size)) {
-          formattedSize = params.size;
-        } else {
-          throw new Error(`尺寸格式无效: ${params.size}`);
-        }
-    }
-    
-    console.log('创建广告位参数:', {
-      factoryId: params.factoryId,
-      gameId: params.gameId,
-      location: params.location,
-      size: params.size,
-      formattedSize,
-      price: params.price,
-      clockId: params.clockId
-    });
-
-    // 创建交易参数，验证是否所有值都符合要求
-    try {
-      // 创建工厂对象引用 - 确保使用正确的对象引用方式
-      const factoryObj = txb.object(params.factoryId);
-      
-      // 获取Clock对象 - 使用正确的方法获取Clock对象
-      const clockObj = txb.object(params.clockId);
-      
-      // 调用合约的 create_ad_space 函数
-      const result = txb.moveCall({
-        target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_ad_space`,
-        arguments: [
-          factoryObj,                 // Factory 对象
-          txb.object(params.gameId),    // 游戏ID
-          txb.object(params.location),  // 位置信息
-          txb.object(formattedSize),    // 尺寸信息 - 使用转换后的格式
-          txb.object(params.price),     // 每日价格
-          clockObj,                   // Clock 对象
-        ],
-      });
-      
-      console.log('交易参数生成成功, moveCall result:', result);
-    } catch (paramError) {
-      console.error('交易参数生成失败:', paramError);
-      throw new Error(`参数转换错误: ${paramError}`);
-    }
-    
-    console.log('广告位交易创建成功');
-    return txb;
-  } catch (error) {
-    console.error('创建广告位交易失败:', error);
-    // 即使出错也返回交易块，让上层处理错误
-    return txb;
+  if (USE_MOCK_DATA) {
+    console.log('使用模拟交易数据');
+    return tx;
   }
+  
+  // 获取必要的对象
+  const factoryObj = tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID);
+  
+  // 调用合约的create_ad_space函数
+  tx.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::create_ad_space`,
+    arguments: [
+      factoryObj,                 // Factory 对象
+      tx.pure.string(params.gameId),     // 游戏ID
+      tx.pure.string(params.location),   // 位置信息
+      tx.pure.string(params.size),       // 尺寸信息
+      tx.pure.string(params.price),      // 价格
+      tx.object(CONTRACT_CONFIG.CLOCK_ID) // Clock对象
+    ],
+  });
+  
+  return tx;
 }
 
 // 注册游戏开发者的交易
 export function registerGameDevTx(params: { factoryId: string, developer: string }): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
   // 调用合约的 register_game_dev 函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::register_game_dev`,
     arguments: [
-      txb.object(params.factoryId),  // Factory 对象
-      txb.object(params.developer),    // 开发者地址
+      tx.object(params.factoryId),  // Factory 对象
+      tx.pure.address(params.developer) // 开发者地址
     ],
   });
   
-  return txb;
+  return tx;
 }
 
 // 更新平台分成比例的交易
 export function updatePlatformRatioTx(params: { factoryId: string, ratio: number }): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
   // 调用合约的 update_platform_ratio 函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_platform_ratio`,
     arguments: [
-      txb.object(params.factoryId), // Factory 对象
-      txb.pure.u64(params.ratio),       // 新的分成比例
+      tx.object(params.factoryId), // Factory 对象
+      tx.pure.u64(params.ratio)   // 新的平台分成比例
     ],
   });
   
-  return txb;
+  return tx;
 }
 
 // 更新广告位价格的交易
 export function updateAdSpacePriceTx(params: { adSpaceId: string, price: string }): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
   // 调用合约的 update_ad_space_price 函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_space_price`,
     arguments: [
-      txb.object(params.adSpaceId), // AdSpace 对象
-      txb.object(params.price),       // 新的价格
+      tx.object(params.adSpaceId), // AdSpace 对象
+      tx.pure.string(params.price) // 新的价格
     ],
   });
   
-  return txb;
+  return tx;
 }
 
 // 计算广告位租赁价格
@@ -1869,33 +1798,31 @@ export async function getCreatedAdSpaces(developerAddress: string): Promise<AdSp
 
 // 移除游戏开发者的交易
 export function removeGameDevTx(params: RemoveGameDevParams): Transaction {
-  const txb = new Transaction();
+  const tx = new Transaction();
   
   // 调用合约的 remove_game_dev 函数
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::remove_game_dev`,
     arguments: [
-      txb.object(params.factoryId),  // Factory 对象
-      txb.object(params.developer),    // 开发者地址
+      tx.object(params.factoryId),  // Factory 对象
+      tx.pure.address(params.developer) // 开发者地址
     ],
   });
   
-  return txb;
+  return tx;
 }
 
 // 创建删除广告位的交易
 export function deleteAdSpaceTx(params: { factoryId: string, adSpaceId: string }): Transaction {
-  console.log('创建删除广告位交易:', params);
-  const { factoryId, adSpaceId } = params;
+  const tx = new Transaction();
   
-  const txb = new Transaction();
-  txb.moveCall({
+  tx.moveCall({
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::delete_ad_space`,
     arguments: [
-      txb.object(factoryId),
-      txb.object(adSpaceId)
+      tx.object(params.factoryId),
+      tx.object(params.adSpaceId)
     ],
   });
   
-  return txb;
+  return tx;
 }

@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { SuiClientProvider, WalletProvider } from '@mysten/dapp-kit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { NETWORKS, DEFAULT_NETWORK } from './config/config';
+import { getFullnodeUrl } from '@mysten/sui/client';
+import { DEFAULT_NETWORK } from './config/config';
 
 // 布局
 import MainLayout from './components/layout/MainLayout';
@@ -19,9 +20,20 @@ import NotFoundPage from './pages/NotFound';
 
 // 全局样式
 import './App.scss';
+import '@mysten/dapp-kit/dist/index.css';
 
 const queryClient = new QueryClient();
-const network = NETWORKS[DEFAULT_NETWORK];
+
+// 配置网络
+const networks = {
+  mainnet: { url: getFullnodeUrl('mainnet') },
+  testnet: { url: getFullnodeUrl('testnet') },
+  devnet: { url: getFullnodeUrl('devnet') },
+  localnet: { url: 'http://localhost:9000' },
+};
+
+// 推荐：所有页面/组件的链上数据请求都用 react-query 包裹 contract.ts 的异步方法
+// 例如：const { data, isLoading } = useQuery(['adSpaces'], getAvailableAdSpaces)
 
 function App() {
   // 监听网络变化
@@ -41,15 +53,10 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SuiClientProvider
-        networks={{
-          [DEFAULT_NETWORK]: { url: network.fullNodeUrl }
-        }}
-        defaultNetwork={DEFAULT_NETWORK}
-      >
-        <WalletProvider autoConnect={true}>
-          <Router>
+      <QueryClientProvider client={queryClient}>
+        <SuiClientProvider networks={networks} defaultNetwork={DEFAULT_NETWORK}>
+          <WalletProvider autoConnect={true}>
+            <Router>
             <MainLayout>
               <Routes>
                 <Route path="/" element={<HomePage />} />

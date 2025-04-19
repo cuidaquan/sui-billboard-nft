@@ -206,7 +206,7 @@ const ManagePage: React.FC = () => {
         const { checkUserRole } = await import('../utils/auth');
         
         // 使用SuiClient和用户地址检查用户角色
-        const role = await checkUserRole(suiClient, account.address);
+        const role = await checkUserRole(account.address, suiClient);
         console.log('当前用户角色:', role);
         setUserRole(role);
         
