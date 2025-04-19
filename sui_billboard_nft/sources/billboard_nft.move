@@ -16,12 +16,9 @@ module sui_billboard_nft::billboard_nft {
     // 错误码
     const EAdSpaceNotAvailable: u64 = 4;
     const EInvalidPayment: u64 = 5;
-    const ENotExpired: u64 = 6;  // NFT未过期不能续租
     const ENotAdmin: u64 = 7;    // 不是管理员
     const ENotGameDev: u64 = 8;  // 不是游戏开发者
     const ENotAdSpaceCreator: u64 = 9; // 不是广告位创建者
-    const EAdSpaceAlreadyRented: u64 = 10; // 广告位已租用
-    const EInsufficientPayment: u64 = 11; // 支付金额不足
     const ENftExpired: u64 = 12; // NFT已过期
 
     // 一次性见证类型
