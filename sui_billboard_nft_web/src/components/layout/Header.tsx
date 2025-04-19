@@ -53,7 +53,7 @@ const AppHeader: React.FC = () => {
   ];
   
   // 管理员角色显示管理菜单
-  if (userRole === UserRole.ADMIN || userRole === UserRole.OWNER) {
+  if (userRole === UserRole.ADMIN || userRole === UserRole.OWNER || userRole === UserRole.GAME_DEV) {
     menuItems.push({
       key: '/manage',
       icon: <SettingOutlined />,

@@ -100,12 +100,12 @@ export async function getAvailableAdSpaces(): Promise<AdSpace[]> {
               imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
               price: '0',
               duration: 365,
-              dimension: { width: 300, height: 250 },
+              dimension: { width: 0, height: 0 },
               owner: null,
-              available: true,
-              location: '无',
+              available: false,
+              location: '',
               isExample: true, // 标记为示例数据
-              price_description: '点击创建您的第一个广告位'
+              price_description: ''
             }];
           }
         } else {
@@ -813,7 +813,7 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   const clockObj = tx.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 创建SUI支付对象
-  const coins = tx.splitCoins(tx.gas, [tx.pure.u64(params.price)]);
+  const [payment] = tx.splitCoins(tx.gas, [tx.pure.u64(params.price)]);
   
   // 准备blob_id参数
   const blobIdBytes = params.blobId 
@@ -826,12 +826,12 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
     arguments: [
       tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID),
       tx.object(params.adSpaceId),
-      coins[0],
+      payment,
       tx.pure.string(params.brandName),
       tx.pure.string(params.contentUrl),
       tx.pure.string(params.projectUrl),
       tx.pure.u64(params.leaseDays),
-      tx.object(CONTRACT_CONFIG.CLOCK_ID),
+      clockObj,
       tx.pure.u64(params.startTime || 0),
       blobIdBytes,
       tx.pure.string(params.storageSource || 'none')
@@ -1412,14 +1412,14 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
             name: '您还没有创建广告位',
             description: '您尚未创建任何广告位，点击"创建广告位"按钮开始创建您的第一个广告位。',
             imageUrl: 'https://via.placeholder.com/300x250?text=创建您的第一个广告位',
-            price: '100000000', // 0.1 SUI
+            price: '0',
             duration: 30,
-            dimension: { width: 300, height: 250 },
+            dimension: { width: 0, height: 0 },
             owner: null,
-            available: true,
-            location: '示例位置',
+            available: false,
+            location: '',
             isExample: true, // 标记这是示例数据
-            price_description: '价格为每日租赁价格'
+            price_description: ''
           }];
         }
         
@@ -1565,12 +1565,12 @@ export async function getAllAdSpacesFromFactory(factoryId: string, developerAddr
             imageUrl: 'https://via.placeholder.com/300x250?text=无可用广告位',
             price: '0',
             duration: 30,
-            dimension: { width: 300, height: 250 },
+            dimension: { width: 0, height: 0 },
             owner: null,
             available: false,
-            location: '无',
+            location: '',
             isExample: true,
-            price_description: '价格为每日租赁价格'
+            price_description: ''
           }];
         }
         

@@ -6,6 +6,7 @@ import { createAdSpaceTx, registerGameDevTx, removeGameDevTx, getCreatedAdSpaces
 import { CONTRACT_CONFIG, NETWORKS, DEFAULT_NETWORK } from '../config/config';
 import './Manage.scss';
 import { ReloadOutlined, PlusOutlined, AppstoreOutlined, DollarOutlined, DeleteOutlined, FormOutlined, UserAddOutlined, UserDeleteOutlined, TeamOutlined, ColumnWidthOutlined, LinkOutlined, SettingOutlined, BankOutlined } from '@ant-design/icons';
+import AdSpaceItem from '../components/adSpace/AdSpaceItem';
 
 const { Title, Paragraph, Text } = Typography;
 const { Option } = Select;
@@ -16,141 +17,6 @@ const ParticlesBackground = () => (
     <div className="particles"></div>
   </div>
 );
-
-// 广告位卡片组件
-const AdSpaceItem: React.FC<{
-  adSpace: AdSpace;
-  onUpdatePrice: (adSpace: AdSpace) => void;
-  onDeleteAdSpace: (adSpaceId: string) => void;
-  deleteLoading: boolean;
-}> = ({ adSpace, onUpdatePrice, onDeleteAdSpace, deleteLoading }) => {
-  const [activeNft, setActiveNft] = useState<BillboardNFT | null>(null);
-  const [loadingNft, setLoadingNft] = useState<boolean>(false);
-
-  // 获取活跃NFT内容
-  useEffect(() => {
-    const fetchNftData = async () => {
-      // 如果广告位有NFT ID列表且不为空
-      if (adSpace.nft_ids && adSpace.nft_ids.length > 0) {
-        try {
-          setLoadingNft(true);
-          console.log(`开始获取广告位[${adSpace.id}]的NFT信息，NFT IDs:`, adSpace.nft_ids);
-          
-          const now = new Date();
-          
-          // 遍历所有NFT
-          for (const nftId of adSpace.nft_ids) {
-            console.log(`正在检查NFT[${nftId}]`);
-            const nftDetails = await getNFTDetails(nftId);
-            
-            if (nftDetails) {
-              const leaseStart = new Date(nftDetails.leaseStart);
-              const leaseEnd = new Date(nftDetails.leaseEnd);
-              
-              // 只有当前时间在租期内的NFT才被视为活跃
-              if (now >= leaseStart && now <= leaseEnd) {
-                console.log(`找到活跃NFT[${nftId}]，将显示在卡片中, 内容URL:`, nftDetails.contentUrl);
-                setActiveNft(nftDetails);
-                break;
-              }
-            }
-          }
-        } catch (err) {
-          console.error(`获取广告位[${adSpace.id}]的NFT失败:`, err);
-        } finally {
-          setLoadingNft(false);
-        }
-      } else {
-        console.log(`广告位[${adSpace.id}]没有关联的NFT ID`);
-      }
-    };
-    
-    fetchNftData();
-  }, [adSpace.id, adSpace.nft_ids]);
-
-  return (
-    <Col xs={24} sm={12} md={8} key={adSpace.id}>
-      <Card className="ad-space-card">
-        <div className="card-cover">
-          {loadingNft ? (
-            <div className="loading-container">
-              <Spin />
-            </div>
-          ) : activeNft && activeNft.contentUrl ? (
-            <div className="active-nft-cover">
-              <img 
-                src={activeNft.contentUrl} 
-                alt={activeNft.brandName || '广告内容'} 
-                className="ad-space-image"
-                onError={(e) => {
-                  console.error(`NFT图片加载失败:`, activeNft.contentUrl);
-                  // 图片加载失败时，显示占位符
-                  (e.target as HTMLImageElement).src = `https://via.placeholder.com/${adSpace.dimension.width}x${adSpace.dimension.height}?text=广告内容`;
-                }}
-              />
-              <Tag className="active-tag" color="green">活跃中</Tag>
-            </div>
-          ) : (
-            <div className="empty-ad-space-placeholder">
-              <ColumnWidthOutlined />
-              <Text>{adSpace.dimension.width} x {adSpace.dimension.height}</Text>
-              <Text>等待广告内容</Text>
-            </div>
-          )}
-          <div className="availability-badge">
-            <span className={adSpace.available ? "available" : "unavailable"}>
-              {adSpace.available ? "可购买" : "已占用"}
-            </span>
-          </div>
-        </div>
-        <Card.Meta
-          title={adSpace.name}
-          className="ad-space-meta"
-        />
-        <div className="ad-space-info">
-          <div className="info-item">
-            <span className="label">位置:</span>
-            <span className="value">{adSpace.location}</span>
-          </div>
-          <div className="info-item">
-            <span className="label">尺寸:</span>
-            <span className="value">{`${adSpace.dimension.width}x${adSpace.dimension.height}`}</span>
-          </div>
-          <div className="info-item">
-            <span className="label">价格:</span>
-            <span className="value price">
-              {parseFloat((Number(adSpace.price) / 1000000000).toFixed(9))} SUI/天
-            </span>
-          </div>
-        </div>
-        <div className="action-buttons">
-          <Button 
-            className="edit-button"
-            onClick={() => onUpdatePrice(adSpace)}
-            icon={<DollarOutlined />}
-          >
-            更改价格
-          </Button>
-          <Popconfirm
-            title="确定要删除此广告位吗?"
-            description="删除后无法恢复，如有活跃NFT将无法删除"
-            onConfirm={() => onDeleteAdSpace(adSpace.id)}
-            okText="确定"
-            cancelText="取消"
-            okButtonProps={{ loading: deleteLoading }}
-          >
-            <Button
-              className="delete-button"
-              icon={<DeleteOutlined />}
-            >
-              删除
-            </Button>
-          </Popconfirm>
-        </div>
-      </Card>
-    </Col>
-  );
-};
 
 const ManagePage: React.FC = () => {
   const [adSpaceForm] = Form.useForm();
@@ -958,12 +824,13 @@ const ManagePage: React.FC = () => {
 
   // 渲染空广告位状态
   const renderEmptyAdSpaces = () => (
-    <div className="empty-container">
-      <AppstoreOutlined className="empty-icon" />
-      <div className="empty-text">暂无广告位</div>
-      <div className="empty-description">创建您的第一个广告位，开始赚取SUI代币</div>
+    <div className="empty-container" style={{ textAlign: 'center', padding: '40px 20px', background: '#f9f9f9', borderRadius: '8px' }}>
+      <AppstoreOutlined style={{ fontSize: '48px', color: '#4e63ff', marginBottom: '16px' }} />
+      <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>您还没有创建广告位</div>
+      <div style={{ color: 'rgba(0, 0, 0, 0.45)', marginBottom: '24px' }}>创建您的第一个广告位，开始赚取SUI代币</div>
       <Button
         type="primary"
+        size="large"
         className="create-button"
         onClick={() => setActiveKey('create')}
         icon={<PlusOutlined />}
