@@ -496,3 +496,30 @@ npm run build
 4. 移动端适配优化
 5. 多语言支持
 6. 社交功能集成
+
+## 环境变量配置
+
+项目使用以下环境变量进行配置，可在`.env`文件中设置：
+
+### 合约配置
+- `REACT_APP_CONTRACT_PACKAGE_ID` - 合约包ID
+- `REACT_APP_CONTRACT_MODULE_NAME` - 合约模块名称
+- `REACT_APP_FACTORY_OBJECT_ID` - 广告位工厂对象ID
+- `REACT_APP_NFT_DISPLAY_CONFIG_ID` - NFT显示配置对象ID
+- `REACT_APP_CLOCK_ID` - Clock对象ID
+
+### 网络配置
+- `REACT_APP_DEFAULT_NETWORK` - 默认网络设置，可选值：`mainnet`、`testnet`、`devnet`、`localnet`
+
+### Walrus存储服务配置
+- `REACT_APP_WALRUS_ENVIRONMENT` - Walrus环境设置，可选值：`mainnet`、`testnet`
+- `REACT_APP_WALRUS_MAINNET_AGGREGATOR_URL` - 主网聚合器端点URL，用于读取存储内容
+- `REACT_APP_WALRUS_MAINNET_PUBLISHER_URL` - 主网发布器端点URL，用于上传文件
+- `REACT_APP_WALRUS_TESTNET_AGGREGATOR_URL` - 测试网聚合器端点URL，用于读取存储内容
+- `REACT_APP_WALRUS_TESTNET_PUBLISHER_URL` - 测试网发布器端点URL，用于上传文件
+
+### 开发配置
+- `REACT_APP_USE_MOCK_DATA` - 是否使用模拟数据，可选值：`true`、`false`
+
+### API配置  
+- `REACT_APP_API_TIMEOUT` - API请求超时时间（毫秒）

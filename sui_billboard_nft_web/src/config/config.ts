@@ -104,6 +104,56 @@ export const API_CONFIG = {
 };
 
 /**
+ * Walrus存储服务配置
+ * 包含了不同环境的Walrus服务端点
+ */
+export const WALRUS_CONFIG = {
+  /**
+   * 主网配置
+   */
+  mainnet: {
+    /**
+     * 聚合器端点 - 用于读取Blob
+     */
+    aggregatorUrl: process.env.REACT_APP_WALRUS_MAINNET_AGGREGATOR_URL || 'https://walrus.globalstake.io',
+    /**
+     * 发布器端点 - 用于上传Blob
+     */
+    publisherUrl: process.env.REACT_APP_WALRUS_MAINNET_PUBLISHER_URL || 'https://walrus.globalstake.io',
+  },
+  /**
+   * 测试网配置
+   */
+  testnet: {
+    /**
+     * 聚合器端点 - 用于读取Blob
+     */
+    aggregatorUrl: process.env.REACT_APP_WALRUS_TESTNET_AGGREGATOR_URL || 'https://aggregator.walrus-testnet.walrus.space',
+    /**
+     * 发布器端点 - 用于上传Blob
+     */
+    publisherUrl: process.env.REACT_APP_WALRUS_TESTNET_PUBLISHER_URL || 'https://publisher.walrus-testnet.walrus.space',
+  },
+  /**
+   * API路径配置
+   */
+  paths: {
+    /**
+     * 发布Blob的路径
+     */
+    publishBlob: '/v1/blobs',
+    /**
+     * 读取Blob的路径（通过blobId）
+     */
+    readBlob: '/v1/blobs/',
+    /**
+     * 通过对象ID读取Blob的路径
+     */
+    readBlobByObjectId: '/v1/blobs/by-object-id/'
+  },
+};
+
+/**
  * 是否使用模拟数据
  * 开发阶段可以设置为true，使用模拟数据而不是实际调用链上合约
  */
