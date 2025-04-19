@@ -168,38 +168,24 @@ const AdSpaceForm: React.FC<AdSpaceFormProps> = ({
             <Form.Item
               name="leaseDays"
               label="租赁天数"
-              rules={[{ required: true, message: '请选择租赁天数' }]}
+              rules={[{ required: true, message: '请输入租赁天数' }]}
+              extra="请输入1-365天的整数，租期越长折扣越多"
             >
-              <Row gutter={8}>
-                <Col span={16}>
-                  <Slider
-                    min={1}
-                    max={365}
-                    onChange={(value) => {
-                      setLeaseDays(Number(value));
-                      form.setFieldsValue({ leaseDays: value });
-                    }}
-                    value={leaseDays}
-                    tooltip={{ formatter: (value) => `${value} 天` }}
-                  />
-                </Col>
-                <Col span={8}>
-                  <InputNumber
-                    min={1}
-                    max={365}
-                    value={leaseDays}
-                    onChange={(value) => {
-                      const days = Number(value);
-                      if (!isNaN(days) && days >= 1 && days <= 365) {
-                        setLeaseDays(days);
-                        form.setFieldsValue({ leaseDays: days });
-                      }
-                    }}
-                    addonAfter="天"
-                    style={{ width: '100%' }}
-                  />
-                </Col>
-              </Row>
+              <InputNumber
+                min={1}
+                max={365}
+                precision={0}
+                value={leaseDays}
+                onChange={(value) => {
+                  const days = Number(value);
+                  if (!isNaN(days) && days >= 1 && days <= 365) {
+                    setLeaseDays(days);
+                    form.setFieldsValue({ leaseDays: days });
+                  }
+                }}
+                addonAfter="天"
+                style={{ width: '100%' }}
+              />
             </Form.Item>
           </Col>
         </Row>

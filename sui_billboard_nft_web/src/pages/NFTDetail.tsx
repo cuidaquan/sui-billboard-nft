@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Card, Typography, Alert, Spin, Button, Descriptions, Space, Tag, Modal, Input, Form, Select, message } from 'antd';
+import { Card, Typography, Alert, Spin, Button, Descriptions, Space, Tag, Modal, Input, Form, Select, message, Divider, InputNumber } from 'antd';
 import { EditOutlined, ClockCircleOutlined, LinkOutlined } from '@ant-design/icons';
 import { BillboardNFT, RenewNFTParams } from '../types';
 import { getNFTDetails, calculateLeasePrice, formatSuiAmount, createRenewLeaseTx } from '../utils/contract';
@@ -632,20 +632,18 @@ const NFTDetailPage: React.FC = () => {
           <Form.Item 
             label="续租天数" 
             required 
+            extra="请输入1-365天的整数，续租天数越长折扣越多"
           >
-            <Select 
-              value={renewDays} 
-              onChange={(value) => setRenewDays(Number(value))}
+            <InputNumber
+              placeholder="请输入续租天数"
+              min={1}
+              max={365}
+              precision={0}
+              value={renewDays}
+              onChange={(value) => value && setRenewDays(Number(value))}
               style={{ width: '100%' }}
-            >
-              <Option value={7}>7天</Option>
-              <Option value={15}>15天</Option>
-              <Option value={30}>30天</Option>
-              <Option value={60}>60天</Option>
-              <Option value={90}>90天</Option>
-              <Option value={180}>180天</Option>
-              <Option value={365}>365天</Option>
-            </Select>
+              addonAfter="天"
+            />
           </Form.Item>
           
           <div className="price-summary" style={{ marginBottom: '20px' }}>
@@ -663,7 +661,7 @@ const NFTDetailPage: React.FC = () => {
           </div>
           
           <Paragraph type="secondary">
-            续租将延长NFT的租赁期限，价格由智能合约根据续租天数动态计算。
+            续租将延长NFT的租赁期限，价格由智能合约根据续租天数动态计算。续租天数范围：1-365天。
           </Paragraph>
         </Form>
       </Modal>

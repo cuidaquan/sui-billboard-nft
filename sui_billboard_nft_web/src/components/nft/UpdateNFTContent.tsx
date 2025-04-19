@@ -42,6 +42,11 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
     setContentParams({ url, blobId, storageSource });
   };
   
+  // 处理内容参数变更
+  const handleContentParamsChange = (data: { url: string; blobId?: string; storageSource: string }) => {
+    setContentParams(data);
+  };
+  
   // 提交表单，更新NFT内容
   const handleSubmit = async (values: any) => {
     // 检查内容URL
@@ -85,6 +90,7 @@ const UpdateNFTContent: React.FC<UpdateNFTContentProps> = ({
         >
           <WalrusUpload
             onSuccess={handleContentUploadSuccess}
+            onChange={handleContentParamsChange}
             leaseDays={365}
           />
         </Form.Item>

@@ -153,18 +153,6 @@
         background: linear-gradient(90deg, #1677ff, #69c0ff);
       }
     }
-    
-    .ant-slider-track {
-      background-color: #1677ff;
-    }
-    
-    .ant-slider-handle {
-      border-color: #1677ff;
-      
-      &:focus {
-        box-shadow: 0 0 0 5px rgba(24, 144, 255, 0.2);
-      }
-    }
   }
   
   // 为表单区域添加分组样式

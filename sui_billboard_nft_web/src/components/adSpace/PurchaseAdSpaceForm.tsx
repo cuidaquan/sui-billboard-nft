@@ -44,6 +44,11 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
     setContentParams({ url, blobId, storageSource });
   };
   
+  // 处理内容参数变更
+  const handleContentParamsChange = (data: { url: string; blobId?: string; storageSource: string }) => {
+    setContentParams(data);
+  };
+  
   // 处理租期变更
   const handleLeaseDaysChange = (value: number | null) => {
     if (value) {
@@ -110,19 +115,22 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
         label={
           <Space>
             <span>租期（天）</span>
-            <Tooltip title="租期固定为365天">
+            <Tooltip title="请输入1-365天的租期">
               <InfoCircleOutlined />
             </Tooltip>
           </Space>
         }
         name="leaseDays"
+        rules={[{ required: true, message: '请输入租期天数' }]}
+        extra="请输入1-365天的整数，租期越长折扣越多"
       >
         <InputNumber
-          min={365}
+          min={1}
           max={365}
+          precision={0}
           style={{ width: '100%' }}
-          disabled
           onChange={handleLeaseDaysChange}
+          addonAfter="天"
         />
       </Form.Item>
       
@@ -133,6 +141,7 @@ const PurchaseAdSpaceForm: React.FC<PurchaseAdSpaceFormProps> = ({
       >
         <WalrusUpload
           onSuccess={handleContentUploadSuccess}
+          onChange={handleContentParamsChange}
           leaseDays={leaseDays}
         />
       </Form.Item>
