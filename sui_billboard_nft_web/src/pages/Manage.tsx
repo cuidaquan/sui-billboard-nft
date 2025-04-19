@@ -197,15 +197,36 @@ const ManagePage: React.FC = () => {
         throw new Error('尺寸格式无效，请选择有效的尺寸选项');
       }
       
+      // 将尺寸转换为宽x高格式
+      let sizeFormat = '';
+      switch (values.size) {
+        case '小':
+          sizeFormat = '320x100';
+          break;
+        case '中':
+          sizeFormat = '320x250';
+          break;
+        case '大':
+          sizeFormat = '728x90';
+          break;
+        case '超大':
+          sizeFormat = '970x250';
+          break;
+        default:
+          sizeFormat = '300x250'; // 默认尺寸
+      }
+      
       // 价格验证 - 确保价格大于0
       if (Number(values.price) <= 0) {
         throw new Error('价格必须大于0');
       }
       
       // 将价格转换为整数（以MIST为单位，1 SUI = 10^9 MIST）
-      const priceInMist = BigInt(Math.floor(Number(values.price) * 1000000000));
+      // 使用字符串方法处理小数，避免浮点数精度问题
+      const priceFloat = parseFloat(values.price);
+      const priceInMist = Math.floor(priceFloat * 1000000000).toString();
       
-      console.log('转换后的价格(MIST):', priceInMist.toString());
+      console.log('转换后的价格(MIST):', priceInMist);
       
       // 检查合约配置
       if (!CONTRACT_CONFIG.FACTORY_OBJECT_ID || !CONTRACT_CONFIG.PACKAGE_ID || !CONTRACT_CONFIG.MODULE_NAME || !CONTRACT_CONFIG.CLOCK_ID) {
@@ -217,8 +238,8 @@ const ManagePage: React.FC = () => {
         factoryId: CONTRACT_CONFIG.FACTORY_OBJECT_ID,
         gameId: values.gameId,
         location: values.location,
-        size: values.size,
-        price: priceInMist.toString(),
+        size: sizeFormat, // 使用转换后的尺寸格式
+        price: priceInMist,
         clockId: CONTRACT_CONFIG.CLOCK_ID
       };
       
@@ -667,13 +688,13 @@ const ManagePage: React.FC = () => {
       setPriceUpdateLoading(true);
       setError(null);
       
-      // 转换为MIST
-      const priceInMist = BigInt(Math.floor(newPrice * 1000000000));
+      // 转换为MIST，使用字符串方法处理小数，避免浮点数精度问题
+      const priceInMist = Math.floor(newPrice * 1000000000).toString();
       
       // 构建交易
       const txb = updateAdSpacePriceTx({
         adSpaceId: currentAdSpace.id,
-        price: priceInMist.toString()
+        price: priceInMist
       });
       
       // 显示交易执行中状态
@@ -706,7 +727,7 @@ const ManagePage: React.FC = () => {
           const latestAdSpace = await getAdSpaceById(currentAdSpace.id);
           
           // 检查价格是否已更新
-          if (latestAdSpace && Number(latestAdSpace.price) === Number(priceInMist.toString())) {
+          if (latestAdSpace && Number(latestAdSpace.price) === Number(priceInMist)) {
             success = true;
             console.log('价格更新已成功确认');
           } else {

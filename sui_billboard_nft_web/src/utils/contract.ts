@@ -929,7 +929,7 @@ export function createAdSpaceTx(params: CreateAdSpaceParams): Transaction {
       tx.pure.string(params.gameId),     // 游戏ID
       tx.pure.string(params.location),   // 位置信息
       tx.pure.string(params.size),       // 尺寸信息
-      tx.pure.string(params.price),      // 价格
+      tx.pure.u64(params.price),      // 价格 - 使用u64类型
       tx.object(CONTRACT_CONFIG.CLOCK_ID) // Clock对象
     ],
   });
@@ -978,7 +978,7 @@ export function updateAdSpacePriceTx(params: { adSpaceId: string, price: string 
     target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::update_ad_space_price`,
     arguments: [
       tx.object(params.adSpaceId), // AdSpace 对象
-      tx.pure.string(params.price) // 新的价格
+      tx.pure.u64(params.price) // 新的价格 - 使用u64类型
     ],
   });
   
