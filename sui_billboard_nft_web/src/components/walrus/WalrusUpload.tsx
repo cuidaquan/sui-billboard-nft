@@ -36,10 +36,39 @@ const WalrusUpload: React.FC<WalrusUploadProps> = ({ onSuccess, onError, leaseDa
     }
     
     try {
-      const response = await signAndExecute({
-        transaction: tx,
-        chain: 'sui:testnet'
+      console.log('准备签名交易，交易对象:', tx);
+      
+      // 确保交易对象包含 sender 信息
+      // 如果是 TransactionBlock 对象，需要设置 sender
+      if (tx && typeof tx === 'object' && 'setSender' in tx && typeof tx.setSender === 'function') {
+        console.log('设置交易发送者为:', account.address);
+        tx.setSender(account.address);
+      }
+      
+      // 使用 Promise 包装 signAndExecute 调用，确保它返回结果
+      const response = await new Promise((resolve, reject) => {
+        signAndExecute(
+          {
+            transaction: tx,
+            chain: 'sui:testnet',
+            account: account // 显式指定账户
+          },
+          {
+            onSuccess: (data) => {
+              console.log('交易签名成功:', data);
+              resolve(data);
+            },
+            onError: (error) => {
+              console.error('交易签名失败:', error);
+              reject(error);
+            }
+          }
+        );
       });
+      
+      if (!response) {
+        throw new Error('交易签名未返回结果');
+      }
       
       return response;
     } catch (e) {

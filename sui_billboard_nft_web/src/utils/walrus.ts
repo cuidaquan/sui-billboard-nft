@@ -105,18 +105,46 @@ export class WalrusService {
       
       try {
         // 创建存储对象
-        const tx = await this.client.createStorageTransaction({
+        let tx = await this.client.createStorageTransaction({
           size: uint8Array.length,
           epochs: epochs,
           owner: address
         });
         
-        // 执行存储创建交易
+        // 检查钱包连接并执行存储创建交易
         try {
+          // 确保交易对象正确格式化，以便钱包能够识别
+          if (!tx) {
+            throw new Error('创建存储交易失败：交易对象为空');
+          }
+          
+          // 确保交易对象包含发送者信息
+          if (typeof tx === 'object') {
+            // 如果是 TransactionBlock 对象，需要设置 sender
+            if ('setSender' in tx && typeof tx.setSender === 'function') {
+              console.log('设置交易发送者为:', address);
+              tx.setSender(address);
+            }
+            
+            // 如果是普通对象，添加 sender 属性
+            if (!('sender' in tx)) {
+              console.log('添加发送者属性:', address);
+              (tx as any).sender = address;
+            }
+          }
+          
+          // 打印交易对象的类型和内容，帮助调试
+          console.log('准备签名存储创建交易, 交易类型:', typeof tx);
+          
+          // 等待签名结果
+          console.log('调用钱包签名函数...');
           const storageResult = await signAndExecute(tx);
           
+          // 验证签名结果
+          console.log('签名函数返回结果类型:', typeof storageResult, '内容:', storageResult);
+          
           if (!storageResult) {
-            throw new Error('存储创建交易失败');
+            throw new Error('存储创建交易失败：钱包未返回交易结果');
           }
           
           console.log('存储创建交易成功:', storageResult);
@@ -127,14 +155,59 @@ export class WalrusService {
         }
         
         // 上传文件 - 调整signer接口以匹配最新API
+        console.log('准备上传文件内容到Walrus...');
+        
+        // 创建符合 Walrus 要求的 signer 对象
+        const walrusSigner = {
+          // 提供签名交易块的方法
+          signTransactionBlock: async (txb: any) => {
+            console.log('准备签名文件上传交易，交易类型:', typeof txb);
+            try {
+              // 确保交易对象有效
+              if (!txb) {
+                throw new Error('文件上传交易对象为空');
+              }
+              
+              // 确保交易对象包含发送者信息
+              if (typeof txb === 'object') {
+                // 如果是 TransactionBlock 对象，需要设置 sender
+                if ('setSender' in txb && typeof txb.setSender === 'function') {
+                  console.log('设置文件上传交易发送者为:', address);
+                  txb.setSender(address);
+                }
+                
+                // 如果是普通对象，添加 sender 属性
+                if (!('sender' in txb)) {
+                  console.log('添加文件上传交易发送者属性:', address);
+                  (txb as any).sender = address;
+                }
+              }
+              
+              // 调用签名函数并等待结果
+              const result = await signAndExecute(txb);
+              console.log('文件上传交易签名成功:', result);
+              return result;
+            } catch (error) {
+              console.error('文件上传交易签名失败:', error);
+              throw error;
+            }
+          },
+          
+          // 添加 toSuiAddress 方法，返回钱包地址
+          toSuiAddress: () => {
+            console.log('调用 toSuiAddress 方法，返回地址:', address);
+            return address;
+          },
+          
+          // 添加地址属性
+          address: address
+        };
+        
         const { blobId } = await this.client.writeBlob({
           blob: uint8Array,
           deletable: true,
           epochs: epochs,
-          signer: {
-            // 使用兼容接口
-            signTransactionBlock: signAndExecute
-          } as any,
+          signer: walrusSigner as any,
           attributes: {
             filename: file.name,
             contentType: file.type,
