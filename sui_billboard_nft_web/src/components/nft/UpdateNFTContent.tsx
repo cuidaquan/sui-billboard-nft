@@ -5,7 +5,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit';
 import { walrusService } from '../../utils/walrus';
 import WalrusUpload from '../walrus/WalrusUpload';
 import { BillboardNFT, UpdateNFTContentParams } from '../../types';
-import { createUpdateAdContentTx } from '../../utils/transaction';
+import { createUpdateAdContentTx } from '../../utils/contract';
 import { useTransaction } from '../../hooks/useTransaction';
 
 interface UpdateNFTContentProps {

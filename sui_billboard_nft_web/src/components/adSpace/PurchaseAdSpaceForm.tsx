@@ -6,7 +6,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit';
 import WalrusUpload from '../walrus/WalrusUpload';
 import { formatSuiCoin } from '../../utils/formatter';
 import { AdSpace, PurchaseAdSpaceParams } from '../../types';
-import { createPurchaseAdSpaceTx } from '../../utils/transaction';
+import { createPurchaseAdSpaceTx, calculateLeasePrice } from '../../utils/contract';
 import { useTransaction } from '../../hooks/useTransaction';
 
 interface PurchaseAdSpaceFormProps {

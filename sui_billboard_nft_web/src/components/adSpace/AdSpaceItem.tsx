@@ -22,31 +22,22 @@ const AdSpaceItem: React.FC<AdSpaceItemProps> = ({
   const [loadingNft, setLoadingNft] = useState(false);
   const [activeNft, setActiveNft] = useState<BillboardNFT | null>(null);
 
-  // 如果这是示例数据，不要显示完整卡片
-  if (adSpace.isExample) {
-    return (
-      <Col xs={24}>
-        <div style={{ textAlign: 'center', padding: '40px 20px', background: '#f9f9f9', borderRadius: '8px' }}>
-          <ColumnWidthOutlined style={{ fontSize: '48px', color: '#4e63ff', marginBottom: '16px' }} />
-          <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>{adSpace.name}</div>
-          <div style={{ color: 'rgba(0, 0, 0, 0.45)', marginBottom: '24px' }}>{adSpace.description}</div>
-        </div>
-      </Col>
-    );
-  }
-
-  // 获取当前活跃的NFT
+  // useEffect需要在组件顶层调用
   useEffect(() => {
-    const getActiveNft = async () => {
-      if (!adSpace.nft_ids || adSpace.nft_ids.length === 0) {
-        return;
-      }
+    // 只有当不是示例数据且有NFT IDs时才执行
+    if (adSpace.isExample || !adSpace.nft_ids?.length) {
+      return;
+    }
 
+    const getActiveNft = async () => {
       try {
         setLoadingNft(true);
         
+        // 确保nft_ids存在
+        const nftIds = adSpace.nft_ids || [];
+        
         // 尝试获取每个NFT详情，找到活跃的
-        for (const nftId of adSpace.nft_ids) {
+        for (const nftId of nftIds) {
           const nft = await getNFTDetails(nftId);
           if (nft && nft.isActive) {
             setActiveNft(nft);
@@ -61,7 +52,20 @@ const AdSpaceItem: React.FC<AdSpaceItemProps> = ({
     };
 
     getActiveNft();
-  }, [adSpace.nft_ids]);
+  }, [adSpace.nft_ids, adSpace.isExample]);
+
+  // 如果这是示例数据，不要显示完整卡片
+  if (adSpace.isExample) {
+    return (
+      <Col xs={24}>
+        <div style={{ textAlign: 'center', padding: '40px 20px', background: '#f9f9f9', borderRadius: '8px' }}>
+          <ColumnWidthOutlined style={{ fontSize: '48px', color: '#4e63ff', marginBottom: '16px' }} />
+          <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>{adSpace.name}</div>
+          <div style={{ color: 'rgba(0, 0, 0, 0.45)', marginBottom: '24px' }}>{adSpace.description}</div>
+        </div>
+      </Col>
+    );
+  }
 
   return (
     <Col xs={24} sm={12} md={8}>

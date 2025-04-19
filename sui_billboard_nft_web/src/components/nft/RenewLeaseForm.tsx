@@ -5,7 +5,7 @@ import { SuiClient } from '@mysten/sui/client';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { BillboardNFT, RenewNFTParams } from '../../types';
 import { formatSuiCoin } from '../../utils/formatter';
-import { createRenewLeaseTx } from '../../utils/transaction';
+import { createRenewLeaseTx } from '../../utils/contract';
 import { useTransaction } from '../../hooks/useTransaction';
 
 interface RenewLeaseFormProps {
