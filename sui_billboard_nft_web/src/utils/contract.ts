@@ -813,7 +813,7 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
   const clockObj = tx.object(CONTRACT_CONFIG.CLOCK_ID);
   
   // 创建SUI支付对象
-  const coins = tx.splitCoins(params.price);
+  const coins = tx.splitCoins(tx.gas, [tx.pure.u64(params.price)]);
   
   // 准备blob_id参数
   const blobIdBytes = params.blobId 
@@ -821,22 +821,22 @@ export function createPurchaseAdSpaceTx(params: PurchaseAdSpaceParams): Transact
     : tx.pure.string('');
   
   // 调用合约的purchase_ad_space函数
-  tx.call(
-    `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
-    [
+  tx.moveCall({
+    target: `${CONTRACT_CONFIG.PACKAGE_ID}::${CONTRACT_CONFIG.MODULE_NAME}::purchase_ad_space`,
+    arguments: [
       tx.object(CONTRACT_CONFIG.FACTORY_OBJECT_ID),
       tx.object(params.adSpaceId),
-      coins,
+      coins[0],
       tx.pure.string(params.brandName),
       tx.pure.string(params.contentUrl),
       tx.pure.string(params.projectUrl),
       tx.pure.u64(params.leaseDays),
-      clockObj,
+      tx.object(CONTRACT_CONFIG.CLOCK_ID),
       tx.pure.u64(params.startTime || 0),
       blobIdBytes,
       tx.pure.string(params.storageSource || 'none')
-    ]
-  );
+    ],
+  });
   
   return tx;
 }
